@@ -23,6 +23,9 @@ def main() -> None:
         root / name
         for name in [
             "README.md",
+            "README.ru.md",
+            "LICENSE",
+            "SECURITY.md",
             "pyproject.toml",
             "uv.lock",
             "requirements.lock",
@@ -30,7 +33,10 @@ def main() -> None:
             "Dockerfile",
             "docker-compose.yml",
             "docker-compose.tls.yml",
+            "docker-compose.caddy.yml",
+            "docker-compose.dev.yml",
             ".gitignore",
+            ".gitattributes",
             ".dockerignore",
             ".graphifyignore",
             ".env.example",
@@ -59,9 +65,9 @@ def main() -> None:
     }
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for path in files:
-            archive.write(path, "kintler/" + path.relative_to(root).as_posix())
+            archive.write(path, "kintlercontrol/" + path.relative_to(root).as_posix())
         archive.writestr(
-            "kintler/MANIFEST.sha256.json", json.dumps(manifest, indent=2, sort_keys=True)
+            "kintlercontrol/MANIFEST.sha256.json", json.dumps(manifest, indent=2, sort_keys=True)
         )
     print(
         f"Release: {destination}; {len(files)} files; SHA-256 {hashlib.sha256(destination.read_bytes()).hexdigest()}"
