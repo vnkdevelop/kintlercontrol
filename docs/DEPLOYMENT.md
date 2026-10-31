@@ -1,0 +1,66 @@
+# Deployment
+
+## Recommended path: setup wizard + Docker
+
+1. Point a DNS name such as `relay.example.com` to your Linux server.
+2. Install Docker Engine and the Compose plugin. Open TCP 80/443 for automatic HTTPS.
+3. On the owner Windows PC, extract the public Windows release and run `KintlerSetup.exe`.
+4. Enter `https://relay.example.com`, choose a new/empty output directory, and select automatic HTTPS.
+5. Upload the generated `server-kit.zip` using SFTP/SCP and extract it outside a public web directory.
+6. Run the exact Compose command written in `START_HERE.md`.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+docker compose ps
+curl --fail https://relay.example.com/healthz
+```
+
+Caddy obtains and renews TLS certificates. Do not use `curl -k` as a solution to
+certificate problems. Verify DNS, firewall, existing listeners and certificate issuance.
+
+## Existing HTTPS proxy
+
+Choose existing-proxy mode. The relay host binding is `127.0.0.1:7443`.
+Use `deploy/existing-nginx.conf` as a template for your own domain/certificate.
+It must forward WebSocket upgrades and set `X-Real-IP` and `X-Forwarded-Proto: https`.
+Only configured proxy addresses are trusted by the broker.
+
+Do not overwrite existing virtual hosts. Validate configuration before reloading.
+The optional Nginx Compose override is `docker-compose.tls.yml` and requires your
+own certificate/key paths in `.env`; no certificates or private keys ship in releases.
+
+## Requirements
+
+Starting minimum for a few devices: Linux x86-64, 1 vCPU, 1 GB RAM, 5 GB free disk,
+Docker Engine + Compose, stable network/DNS. Recommended: 2 vCPU, 2 GB RAM and
+10+ GB with monitoring and backups. Maximum concurrency is not a load-tested
+capacity promise. Keep one relay process/replica.
+
+## Updates and backups
+
+Pull the desired image version and run `docker compose up -d`. Preserve `.env`,
+owner public registration and Docker volumes. A relay restart requires fresh
+agent approvals. Never use `down -v` unless intentionally deleting the installation.
+
+Back up SQLite with its online backup mechanism, or stop the relay before copying
+database files. Copying only the main database while WAL writes are active is unsafe.
+Keep Caddy data/config volumes for certificate renewal state.
+
+## Troubleshooting
+
+- Offline agent: verify the generated EXE and `kintler-agent.json` remain together.
+- Waiting agent: approve its new request in the owner controller; new keys need the displayed code.
+- Known device waiting again: expected behavior—approval is per connection, not permanent.
+- No approvals visible: owner identity/ACL or backend registration does not match.
+- Tool disabled: check operator ACL, local agent tool policy and OS administrator rights.
+- TLS error: check DNS/certificate; do not disable validation.
+- Docker subnet collision: change the private subnet, static proxy/relay IPs and trusted proxy list together.
+
+## Русский
+
+Основной путь: свой DNS-домен → Docker с Compose → мастер на ПК владельца →
+сгенерированный server-kit.zip → распаковка на сервере → команда из START_HERE.md.
+При автоматическом HTTPS Caddy выпускает и продлевает сертификат. Нужны TCP 80/443.
+Для существующего прокси используйте отдельный режим и свои сертификаты; не
+перезаписывайте рабочие сайты. Сохраняйте volumes при обновлении. Каждая новая
+агентская сессия требует подтверждения заново. EXE и JSON в папке Agent держать вместе.

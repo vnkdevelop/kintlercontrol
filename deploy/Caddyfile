@@ -1,0 +1,9 @@
+{$KINTLER_DOMAIN} {
+	tls {
+		protocols tls1.3
+	}
+	reverse_proxy relay:7443 {
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-Proto https
+	}
+}

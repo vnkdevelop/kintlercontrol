@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kintlercontrol"
+version = "1.2.0"
+description = "Authenticated remote management relay, agent and controller"
+requires-python = ">=3.12"
+dependencies = ["aiohttp>=3.11,<4", "psutil>=6.1,<8", "python-dotenv>=1.0,<2", "cryptography>=45,<51"]
+
+[project.optional-dependencies]
+screen = ["mss>=10,<11"]
+ai = ["mcp>=1.26,<2"]
+windows = ["pyinstaller>=6.12,<7", "pillow>=11,<13", "tzdata>=2025.2"]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "pytest-cov>=6,<8", "ruff>=0.11,<1", "mypy>=1.15,<2", "types-psutil>=6", "PyYAML>=6,<7", "pillow>=11,<13"]
+
+[project.scripts]
+kintler-server = "server.app:main"
+kintler-agent = "agent.kintler_agent:main"
+kintler = "client.kintler_cli:main"
+kintler-config = "scripts.configure:main"
+kintler-mcp = "client.mcp_server:main"
+kintler-controller-app = "desktop.controller_app:main"
+kintler-agent-app = "desktop.agent_app:main"
+kintler-setup = "desktop.setup_app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["server", "agent", "client", "common", "scripts", "desktop", "deploy"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"docker-compose.yml" = "desktop/resources/docker-compose.yml"
+"docker-compose.tls.yml" = "desktop/resources/docker-compose.tls.yml"
+"docker-compose.caddy.yml" = "desktop/resources/docker-compose.caddy.yml"
+"deploy/Caddyfile" = "desktop/resources/deploy/Caddyfile"
+"deploy/nginx.conf" = "desktop/resources/deploy/nginx.conf"
+"deploy/existing-nginx.conf" = "desktop/resources/deploy/existing-nginx.conf"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
+ignore = ["E501", "ASYNC109", "ASYNC230", "ASYNC240"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ASYNC110"]
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+disallow_untyped_defs = true
+exclude = ["tests", ".venv", "graphify-out"]

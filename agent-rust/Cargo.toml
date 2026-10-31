@@ -1,0 +1,33 @@
+[package]
+name = "kintler-agent"
+version = "1.2.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+dotenvy = "0.15"
+ed25519-dalek = "2"
+encoding_rs = "0.8"
+futures-util = "0.3"
+hostname = "0.4"
+png = "0.18"
+rand = "0.8"
+rustls = { version = "0.23", default-features = false, features = ["std", "ring"] }
+rustls-native-certs = "0.8"
+rustls-pemfile = "2"
+serde_json = "1"
+sha2 = "0.10"
+sysinfo = "0.37"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "process", "io-util"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-native-roots"] }
+tokio-util = "0.7"
+winreg = "0.55"
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security_Cryptography", "Win32_System_DataExchange", "Win32_System_JobObjects", "Win32_System_LibraryLoader", "Win32_System_Memory", "Win32_System_Threading", "Win32_UI_Controls", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

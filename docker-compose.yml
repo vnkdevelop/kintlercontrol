@@ -1,0 +1,44 @@
+services:
+  relay:
+    image: ${KINTLER_IMAGE:-ghcr.io/vnkdevelop/kintlercontrol:1.2.0}
+    env_file: .env
+    environment:
+      KINTLER_DATABASE: /app/data/kintler.sqlite3
+      KINTLER_HOST: 0.0.0.0
+      KINTLER_PORT: "7443"
+      KINTLER_ALLOW_LOCAL_HTTP: "0"
+      KINTLER_TRUSTED_PROXIES: 172.30.44.1/32,172.30.44.10/32
+    ports:
+      - "127.0.0.1:7443:7443"
+    volumes:
+      - kintler-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 20s
+    mem_limit: 512m
+    cpus: 2.0
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      private:
+        ipv4_address: 172.30.44.20
+
+networks:
+  private:
+    ipam:
+      config:
+        - subnet: 172.30.44.0/24
+
+volumes:
+  kintler-data:

@@ -1,0 +1,21 @@
+[Unit]
+Description=Kintler enrolled remote management agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kintler
+WorkingDirectory=/opt/kintler-agent
+ExecStart=/opt/kintler-agent/.venv/bin/kintler-agent --env /opt/kintler-agent/.env
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/kintler-agent/workspace
+KillMode=control-group
+
+[Install]
+WantedBy=multi-user.target
