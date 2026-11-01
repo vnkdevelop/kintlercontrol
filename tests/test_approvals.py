@@ -34,7 +34,7 @@ async def ready(service, node: str, online: bool) -> None:
 
 
 async def test_every_reconnection_requires_fresh_owner_decision(tmp_path: Path, monkeypatch):
-    codes = iter([12345678, 87654321, 11223344])
+    codes = iter([123456, 654321, 112233])
     monkeypatch.setattr("server.approvals.secrets.randbelow", lambda limit: next(codes))
     owner = Credential(
         "owner", secrets.token_urlsafe(48), nodes=frozenset({"*"}), tools=TOOLS, can_approve=True
@@ -99,7 +99,7 @@ async def test_every_reconnection_requires_fresh_owner_decision(tmp_path: Path, 
                 assert not (await client.nodes())[0]["online"]
                 second_code = service.approvals.requests[repeated["request_id"]].code
                 assert second_code != first_code
-                for invalid in ("", first_code, "１２３４５６７８", 87654321):
+                for invalid in ("", first_code, "１２３４５６", 654321):
                     with pytest.raises(ProtocolError, match="code"):
                         await client.approve(repeated["request_id"], True, invalid)
                     assert not (await client.nodes())[0]["online"]
@@ -181,7 +181,7 @@ async def test_agent_cannot_send_commands_while_waiting(tmp_path: Path):
 
 @pytest.mark.parametrize("known", [False, True])
 async def test_five_wrong_codes_deny_new_and_known_devices(tmp_path: Path, monkeypatch, known):
-    monkeypatch.setattr("server.approvals.secrets.randbelow", lambda limit: 12345678)
+    monkeypatch.setattr("server.approvals.secrets.randbelow", lambda limit: 123456)
     owner = Credential(
         "owner", secrets.token_urlsafe(48), nodes=frozenset({"*"}), tools=TOOLS, can_approve=True
     )
@@ -209,7 +209,7 @@ async def test_five_wrong_codes_deny_new_and_known_devices(tmp_path: Path, monke
             assert "code" not in request
             for _ in range(5):
                 with pytest.raises(ProtocolError, match="code"):
-                    await client.approve(request["request_id"], True, "00000000")
+                    await client.approve(request["request_id"], True, "000000")
             assert (await socket.receive_json(timeout=5))["type"] == "approval_denied"
             assert not app[SERVICE].registry.nodes
             with pytest.raises(ProtocolError):
@@ -224,6 +224,6 @@ def test_pairing_code_is_displayed_only_in_an_interactive_console(monkeypatch, c
 
     output = Console()
     monkeypatch.setattr("agent.kintler_agent.sys.stdout", output)
-    display_approval("waiting", {"code": "12345678"})
-    assert ("12345678" in output.getvalue()) is interactive
-    assert "12345678" not in caplog.text
+    display_approval("waiting", {"code": "123456"})
+    assert ("123456" in output.getvalue()) is interactive
+    assert "123456" not in caplog.text

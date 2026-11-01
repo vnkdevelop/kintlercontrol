@@ -1,7 +1,7 @@
 #![cfg_attr(not(test), windows_subsystem = "windows")]
-mod gui;
 mod identity;
 mod network;
+mod terminal;
 mod tools;
 mod transfer;
 
@@ -13,18 +13,14 @@ use std::{
 use tokio_util::sync::CancellationToken;
 
 fn main() {
-    if let Err(error) = start() {
-        unsafe {
-            windows_sys::Win32::UI::WindowsAndMessaging::MessageBoxW(
-                std::ptr::null_mut(),
-                format!("Kintler: {error}\0")
-                    .encode_utf16()
-                    .collect::<Vec<_>>()
-                    .as_ptr(),
-                "Kintler\0".encode_utf16().collect::<Vec<_>>().as_ptr(),
-                windows_sys::Win32::UI::WindowsAndMessaging::MB_ICONERROR,
-            );
-        }
+    if let Err(error) = start()
+        && terminal::console().is_ok()
+    {
+        println!(
+            "\x1b[48;2;9;14;11m\x1b[38;2;228;151;141mKintler · {error}\x1b[0m\n\nНажмите Enter, чтобы закрыть."
+        );
+        let mut input = String::new();
+        let _ = std::io::stdin().read_line(&mut input);
     }
 }
 
@@ -37,7 +33,12 @@ fn start() -> anyhow::Result<()> {
             .map(PathBuf::from)
     };
     if let Some(path) = value("--self-test") {
-        std::fs::write(path,serde_json::json!({"ok":true,"role":"agent","native":true,"node_id":identity::node_id()?}).to_string())?;
+        let snapshot = terminal::snapshot()?;
+        std::fs::write(path,serde_json::json!({"ok":snapshot.contains("КОД ДОСТУПА"),"role":"agent","native":true,"terminal":true,"code_length":6,"node_id":identity::node_id()?}).to_string())?;
+        return Ok(());
+    }
+    if let Some(path) = value("--ui-snapshot") {
+        std::fs::write(path, terminal::snapshot()?)?;
         return Ok(());
     }
     let path = value("--env").unwrap_or_else(identity::profile);
@@ -76,7 +77,12 @@ fn start() -> anyhow::Result<()> {
             .build()?
             .block_on(network::run(config, sender, CancellationToken::new()));
     } else {
-        gui::run(config)?;
+        let title = args
+            .iter()
+            .position(|value| value == "--window-title")
+            .and_then(|index| args.get(index + 1))
+            .map(String::as_str);
+        terminal::run(config, title)?;
     }
     Ok(())
 }

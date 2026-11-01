@@ -4,12 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kintlercontrol"
-version = "1.3.1"
+version = "1.4.0"
 description = "Authenticated remote management relay, agent and controller"
 requires-python = ">=3.12"
 dependencies = ["aiohttp>=3.11,<4", "psutil>=6.1,<8", "python-dotenv>=1.0,<2", "cryptography>=45,<51"]
 
 [project.optional-dependencies]
+desktop = ["textual==8.2.8"]
 screen = ["mss>=10,<11"]
 ai = ["mcp>=1.26,<2"]
 windows = ["pyinstaller>=6.12,<7", "pillow>=11,<13", "tzdata>=2025.2"]
@@ -21,8 +22,8 @@ kintler-agent = "agent.kintler_agent:main"
 kintler = "client.kintler_cli:main"
 kintler-config = "scripts.configure:main"
 kintler-mcp = "client.mcp_server:main"
-kintler-controller-app = "desktop.controller_app:main"
-kintler-agent-app = "desktop.agent_app:main"
+kintler-controller-app = "desktop.terminal_entry:main"
+kintler-agent-app = "desktop.terminal_agent_entry:main"
 kintler-setup = "desktop.setup_app:main"
 
 [tool.hatch.build.targets.wheel]

@@ -33,7 +33,7 @@ pub fn admin() -> bool {
 pub fn metadata(config: &Config, system: &mut System) -> Value {
     system.refresh_cpu_usage();
     system.refresh_memory();
-    json!({"name":config.name,"platform":"Windows","user":std::env::var("USERNAME").unwrap_or_default(),"admin":admin(),"version":"1.3.1-rust","tools":config.tools,"telemetry":{"cpu_percent":system.global_cpu_usage(),"ram_total":system.total_memory(),"ram_percent":100.0*(system.used_memory() as f64)/(system.total_memory().max(1) as f64),"uptime":System::uptime()}})
+    json!({"name":config.name,"platform":"Windows","user":std::env::var("USERNAME").unwrap_or_default(),"admin":admin(),"version":"1.4.0-rust","tools":config.tools,"telemetry":{"cpu_percent":system.global_cpu_usage(),"ram_total":system.total_memory(),"ram_percent":100.0*(system.used_memory() as f64)/(system.total_memory().max(1) as f64),"uptime":System::uptime()}})
 }
 
 fn process_created(pid: u32) -> Option<f64> {
@@ -129,9 +129,12 @@ fn kill(args: &Value) -> Result<Value> {
 }
 
 fn sysinfo() -> Value {
-    let mut system = System::new_all();
+    let mut system = System::new();
+    system.refresh_cpu_all();
+    system.refresh_memory();
     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
-    system.refresh_all();
+    system.refresh_cpu_usage();
+    system.refresh_memory();
     let disks=Disks::new_with_refreshed_list().iter().map(|d|json!({"device":d.name().to_string_lossy(),"mountpoint":d.mount_point().to_string_lossy(),"total":d.total_space(),"free":d.available_space()})).collect::<Vec<_>>();
     let network=Networks::new_with_refreshed_list().iter().map(|(name,data)|json!({"name":name,"mac":data.mac_address().to_string(),"addresses":data.ip_networks().iter().map(|v|v.to_string()).collect::<Vec<_>>()})).collect::<Vec<_>>();
     let mut gpu = Vec::new();
@@ -432,10 +435,10 @@ pub async fn execute(
         return process(argv, cwd, envelope, sender, cancel).await;
     }
     if ["registry", "services", "tasks"].contains(&tool.as_str()) {
-        if !admin() {
+        let op = args["operation"].as_str().unwrap_or("list");
+        if !["list", "status", "query"].contains(&op) && !admin() {
             bail!("Administrator privileges required");
         }
-        let op = args["operation"].as_str().unwrap_or("list");
         let argv = match tool.as_str() {
             "registry" => {
                 let key = text(&args, "key")?;

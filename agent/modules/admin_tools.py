@@ -14,11 +14,11 @@ def text(value: object, name: str, maximum: int = 4096) -> str:
 
 
 async def admin(tool: str, args: dict, root: Path, emit: Emit, timeout: float) -> dict:
-    if not is_admin():
+    operation = args.get("operation", "query" if tool == "registry" else "list")
+    if operation not in {"list", "status", "query"} and not is_admin():
         raise ProtocolError(
             "Administrator privileges required; automatic elevation is not supported"
         )
-    operation = args.get("operation", "list")
     if tool == "services" and os.name != "nt":
         if operation not in {"list", "status", "start", "stop", "restart"}:
             raise ProtocolError("Invalid service operation")

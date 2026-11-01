@@ -73,6 +73,135 @@ def close_own_window(pid: int) -> bool:
     return bool(matches)
 
 
+def console_for_process(pid: int, close: bool = False) -> str:
+    if sys.platform != "win32":
+        return ""
+    kernel = ctypes.windll.kernel32
+    kernel.GetConsoleWindow.restype = ctypes.c_void_p
+    kernel.GetStdHandle.argtypes = [ctypes.c_ulong]
+    kernel.GetStdHandle.restype = ctypes.c_void_p
+    kernel.CreateFileW.argtypes = [
+        ctypes.c_wchar_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.c_ulong,
+        ctypes.c_void_p,
+    ]
+    kernel.CreateFileW.restype = ctypes.c_void_p
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    handles: list[int] = []
+    original = kernel.GetConsoleWindow()
+    pids = [pid, *(child.pid for child in psutil.Process(pid).children(recursive=True))]
+    try:
+        kernel.FreeConsole()
+        for candidate in reversed(pids):
+            if not kernel.AttachConsole(candidate):
+                continue
+            title = ctypes.create_unicode_buffer(256)
+            kernel.GetConsoleTitleW(title, len(title))
+            if not title.value.startswith("Kintler"):
+                kernel.FreeConsole()
+                continue
+
+            class Coord(ctypes.Structure):
+                _fields_ = [("x", ctypes.c_short), ("y", ctypes.c_short)]
+
+            class Rect(ctypes.Structure):
+                _fields_ = [
+                    ("left", ctypes.c_short),
+                    ("top", ctypes.c_short),
+                    ("right", ctypes.c_short),
+                    ("bottom", ctypes.c_short),
+                ]
+
+            class Info(ctypes.Structure):
+                _fields_ = [
+                    ("size", Coord),
+                    ("cursor", Coord),
+                    ("attributes", ctypes.c_ushort),
+                    ("window", Rect),
+                    ("maximum", Coord),
+                ]
+
+            handle = kernel.CreateFileW("CONOUT$", 0xC0000000, 3, None, 3, 0, None)
+            if handle in {None, ctypes.c_void_p(-1).value}:
+                kernel.FreeConsole()
+                continue
+            handles.append(handle)
+            info = Info()
+            kernel.GetConsoleScreenBufferInfo.argtypes = [ctypes.c_void_p, ctypes.POINTER(Info)]
+            if not kernel.GetConsoleScreenBufferInfo(handle, ctypes.byref(info)):
+                kernel.FreeConsole()
+                continue
+            count = min(info.size.x * info.size.y, 1000000)
+            text = ctypes.create_unicode_buffer(count + 1)
+            copied = ctypes.c_ulong()
+            kernel.ReadConsoleOutputCharacterW.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_wchar_p,
+                ctypes.c_ulong,
+                Coord,
+                ctypes.POINTER(ctypes.c_ulong),
+            ]
+            kernel.ReadConsoleOutputCharacterW(
+                handle, text, count, Coord(0, 0), ctypes.byref(copied)
+            )
+            result = text.value
+            if "KINTLER" not in result and "/help" not in result:
+                return ""
+            if close:
+
+                class Key(ctypes.Structure):
+                    _fields_ = [
+                        ("down", ctypes.c_int),
+                        ("repeat", ctypes.c_ushort),
+                        ("virtual", ctypes.c_ushort),
+                        ("scan", ctypes.c_ushort),
+                        ("character", ctypes.c_wchar),
+                        ("control", ctypes.c_ulong),
+                    ]
+
+                class Record(ctypes.Structure):
+                    _fields_ = [("kind", ctypes.c_ushort), ("key", Key)]
+
+                key = Record(
+                    1,
+                    Key(
+                        1,
+                        1,
+                        0x51,
+                        0,
+                        "\x11" if "Controller" in title.value else "q",
+                        8 if "Controller" in title.value else 0,
+                    ),
+                )
+                written = ctypes.c_ulong()
+                kernel.WriteConsoleInputW.argtypes = [
+                    ctypes.c_void_p,
+                    ctypes.POINTER(Record),
+                    ctypes.c_ulong,
+                    ctypes.POINTER(ctypes.c_ulong),
+                ]
+                incoming = kernel.CreateFileW("CONIN$", 0xC0000000, 3, None, 3, 0, None)
+                if incoming not in {None, ctypes.c_void_p(-1).value}:
+                    handles.append(incoming)
+                    accepted = kernel.WriteConsoleInputW(
+                        incoming, ctypes.byref(key), 1, ctypes.byref(written)
+                    )
+                    if not accepted or written.value != 1:
+                        raise RuntimeError("Could not send the test terminal's close key")
+            return result
+        return ""
+    finally:
+        for handle in handles:
+            kernel.CloseHandle(handle)
+        kernel.FreeConsole()
+        if original:
+            kernel.AttachConsole(0xFFFFFFFF)
+
+
 async def run(root: Path, temporary: Path) -> None:
     output = root / "dist/windows"
     executables = {
@@ -104,7 +233,8 @@ async def run(root: Path, temporary: Path) -> None:
                 for _ in range(200):
                     if window.returncode is not None:
                         raise RuntimeError(f"Frozen {role} GUI exited early")
-                    if await asyncio.to_thread(close_own_window, window.pid):
+                    text = await asyncio.to_thread(console_for_process, window.pid, True)
+                    if text:
                         break
                     await asyncio.sleep(0.1)
                 else:

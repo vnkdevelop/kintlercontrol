@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from aiohttp import WSMsgType, web
 
 from common.identity import fingerprint
-from common.protocol import ProtocolError
+from common.protocol import PAIRING_CODE_LENGTH, ProtocolError
 from server.auth import Auth, Session
 from server.config import Settings
 from server.registry import Registry
@@ -97,7 +97,7 @@ class Approvals:
             peer,
             socket,
             time.time() + self.settings.approval_timeout,
-            f"{secrets.randbelow(100000000):08d}",
+            f"{secrets.randbelow(10**PAIRING_CODE_LENGTH):0{PAIRING_CODE_LENGTH}d}",
             known,
         )
         self.requests[request.id] = request
@@ -127,7 +127,7 @@ class Approvals:
                 raise ProtocolError("This connection approval is no longer valid")
             if approve and not (
                 isinstance(code, str)
-                and len(code) == 8
+                and len(code) == PAIRING_CODE_LENGTH
                 and code.isascii()
                 and code.isdigit()
                 and hmac.compare_digest(code, request.code)

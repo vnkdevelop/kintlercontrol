@@ -25,6 +25,7 @@ class ClientSettings:
     allow_local_http: bool = False
     ca_file: str | None = None
     private_key: bytes = field(default=b"", repr=False)
+    origin: str = "controller"
 
     @classmethod
     def from_env(cls) -> "ClientSettings":
@@ -156,7 +157,7 @@ class KintlerClient:
         reply = await self.request(
             "POST",
             f"/api/nodes/{node_id}/cmd",
-            {"tool": tool, "args": args or {}, "timeout": timeout},
+            {"tool": tool, "args": args or {}, "timeout": timeout, "origin": self.settings.origin},
         )
         return reply["command_id"]
 

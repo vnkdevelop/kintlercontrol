@@ -52,7 +52,9 @@ def main() -> None:
         description="Create a local DPAPI owner key and export only public server registration"
     )
     parser.add_argument("--url", required=True, help="Your own public HTTPS relay origin")
-    parser.add_argument("--output", type=Path, default=Path("dist/backend/owner-public.json"))
+    parser.add_argument(
+        "--output", type=Path, default=Path(".private/deployment/server/owner-public.json")
+    )
     parser.add_argument("--profile", type=Path)
     args = parser.parse_args()
     path = prepare(args.url, args.output, args.profile)

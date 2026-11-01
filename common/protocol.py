@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 PROTOCOL_VERSION = 1
 CHUNK_SIZE = 48 * 1024
+PAIRING_CODE_LENGTH = 6
 MAX_MESSAGE = 256 * 1024
 TOOLS = frozenset(
     {

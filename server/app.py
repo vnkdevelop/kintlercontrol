@@ -105,7 +105,7 @@ class Service:
                     await socket.close(code=1008, message=b"Session expired")
 
     async def health(self, request: web.Request) -> web.Response:
-        return web.json_response({"status": "ok", "version": "1.3.1"})
+        return web.json_response({"status": "ok", "version": "1.4.0"})
 
     async def challenge(self, request: web.Request) -> web.Response:
         return web.json_response(self.auth.challenge(self.peer(request)))
@@ -151,6 +151,7 @@ class Service:
             value.get("tool"),
             value.get("args", {}),
             value.get("timeout"),
+            value.get("origin", "controller"),
         )
         return web.json_response(command.view(), status=202)
 
@@ -340,6 +341,7 @@ class Service:
                     value.get("tool"),
                     value.get("args", {}),
                     value.get("timeout"),
+                    value.get("origin", "controller"),
                 )
                 payload = {"command_id": command.id}
             elif kind == "cancel":

@@ -159,7 +159,7 @@ class Agent:
             message["tool"],
             message["session_id"],
         )
-        self.notify("command", {"command_id": message["command_id"], "tool": message["tool"]})
+        self.notify("command", {"command_id": message["command_id"], "tool": message["tool"], "activity": message.get("activity", message["tool"])})
         try:
             timeout = message["timeout"]
             async with asyncio.timeout(timeout):
@@ -317,7 +317,7 @@ def display_approval(event: str, detail: dict) -> None:
     if event == "waiting":
         if sys.stdout.isatty():
             print(
-                f"Enter this connection's eight-digit code in Controller: {detail['code']}",
+                f"Enter this connection's six-digit code in Controller: {detail['code']}",
                 flush=True,
             )
         else:

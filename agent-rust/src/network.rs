@@ -63,14 +63,15 @@ pub async fn connection(
         .max_frame_size(Some(256 * 1024));
     event(&events, "Подключение к серверу…");
     let (mut socket, _) = tokio::select! {_ = stop.cancelled()=>return Ok(false),value=tokio::time::timeout(Duration::from_secs(30),connect_async_tls_with_config(&url,Some(ws_config),true,Some(Connector::Rustls(Arc::new(tls)))))=>value??};
-    let challenge = tokio::time::timeout(Duration::from_secs(30), socket.next())
-        .await?
-        .ok_or_else(|| anyhow!("Server closed handshake"))??;
+    let challenge = tokio::select! {
+        _ = stop.cancelled() => return Ok(false),
+        value = tokio::time::timeout(Duration::from_secs(30), socket.next()) => value?.ok_or_else(|| anyhow!("Server closed handshake"))??,
+    };
     let challenge: Value = serde_json::from_str(challenge.to_text()?)?;
     if challenge["type"] != "challenge" {
         bail!("Expected authentication challenge");
     }
-    let mut system = sysinfo::System::new_all();
+    let mut system = sysinfo::System::new();
     let mut login = config.auth(&challenge)?;
     login["metadata"] = tools::metadata(&config, &mut system);
     socket.send(Message::Text(login.to_string().into())).await?;
@@ -93,7 +94,7 @@ pub async fn connection(
             "approval_denied" => {
                 event(
                     &events,
-                    "Подключение отклонено или время ожидания истекло. Нажмите «Подключить снова».",
+                    "Подключение отклонено или время ожидания истекло. Нажмите r для нового подключения.",
                 );
                 return Ok(false);
             }
@@ -104,7 +105,7 @@ pub async fn connection(
         &events,
         format!(
             "Online — {}. Каждое переподключение требует нового подтверждения.",
-            config.node
+            config.name
         ),
     );
     let transfers = Arc::new(Mutex::new(Transfers::new(config.root.clone())));
@@ -118,7 +119,7 @@ pub async fn connection(
         loop {tokio::select!{
             _=stop.cancelled()=>break,
             _=pulse.tick()=>socket.send(Message::Text(json!({"type":"heartbeat","metadata":tools::metadata(&config,&mut system)}).to_string().into())).await?,
-            Some(value)=output.recv()=>{if value["type"]=="result"{jobs.remove(value["command_id"].as_str().unwrap_or(""));}socket.send(Message::Text(value.to_string().into())).await?;},
+            Some(value)=output.recv()=>{if value["type"]=="result"{jobs.remove(value["command_id"].as_str().unwrap_or(""));event(&events,format!("Завершено · {}",if value["result"]["ok"]==true{"успешно"}else{"ошибка — проверьте права и состояние устройства"}));}socket.send(Message::Text(value.to_string().into())).await?;},
             frame=socket.next()=>{
                 let Some(frame)=frame else{break;};let frame=frame?;
                 if let Message::Close(reason)=frame{denied=reason.is_some_and(|v|u16::from(v.code)==4001);break;}
@@ -131,7 +132,7 @@ pub async fn connection(
                 if message["type"]!="command"||jobs.len()>=8||seen.len()>=10000||!seen.insert(id.clone()){bail!("Invalid, duplicate or excessive command");}
                 let seconds=message["timeout"].as_f64().filter(|v|v.is_finite()&&*v>=1.0&&*v<=120.0).ok_or_else(||anyhow!("Invalid timeout"))?;
                 let tool=message["tool"].as_str().ok_or_else(||anyhow!("Invalid tool"))?.to_string();let args=message["args"].clone();if !args.is_object(){bail!("Tool args must be an object");}
-                event(&events,format!("Online — выполняется {tool} [{id}]"));
+                event(&events,message["activity"].as_str().filter(|value|value.len()<=4096).unwrap_or(&tool).to_string());
                 let envelope=json!({"session_id":owner,"target_node_id":config.node,"command_id":id});let cancelled=stop.child_token();let cancel=cancelled.clone();let sender=sender.clone();let config=config.clone();let transfers=transfers.clone();
                 let task=tokio::spawn(async move {let result=match tokio::time::timeout(Duration::from_secs_f64(seconds),tools::execute(tool,args,config,transfers,envelope.clone(),sender.clone(),cancel)).await {Ok(Ok(value))=>value,Ok(Err(error))=>json!({"ok":false,"error":error.to_string()}),Err(_)=>json!({"ok":false,"error":"Command deadline expired"})};let mut event=envelope;event["type"]=json!("result");event["result"]=result;let _=sender.send(event).await;});jobs.insert(id,(owner,cancelled,task));
             }
@@ -145,7 +146,7 @@ pub async fn connection(
         .lock()
         .map_err(|_| anyhow!("File state unavailable"))?
         .clear();
-    let _ = socket.close(None).await;
+    let _ = tokio::time::timeout(Duration::from_secs(2), socket.close(None)).await;
     event(
         &events,
         if denied {

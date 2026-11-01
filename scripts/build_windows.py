@@ -5,7 +5,6 @@ import os
 import shutil
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -18,25 +17,29 @@ def command(argv: list[str], env: dict[str, str] | None = None) -> None:
 
 
 def make_icon(path: Path) -> None:
-    image = Image.new("RGBA", (256, 256), "#172B4D")
+    image = Image.new("RGBA", (256, 256), "#090e0b")
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((28, 28, 228, 228), radius=40, fill="#176BCA")
-    draw.polygon(
-        [
-            (65, 58),
-            (89, 58),
-            (89, 115),
-            (155, 58),
-            (190, 58),
-            (115, 128),
-            (192, 198),
-            (155, 198),
-            (89, 140),
-            (89, 198),
-            (65, 198),
-        ],
-        fill="white",
-    )
+    curves = [
+        ((59, 164), (37, 98), (95, 49), (199, 39)),
+        ((199, 39), (192, 146), (150, 204), (83, 186)),
+    ]
+    points = []
+    for curve in curves:
+        for step in range(65):
+            t = step / 64
+            points.append(
+                tuple(
+                    (1 - t) ** 3 * curve[0][axis]
+                    + 3 * (1 - t) ** 2 * t * curve[1][axis]
+                    + 3 * (1 - t) * t**2 * curve[2][axis]
+                    + t**3 * curve[3][axis]
+                    for axis in (0, 1)
+                )
+            )
+    draw.polygon(points, fill="#246943")
+    draw.line((65, 197, 171, 76), fill="#a4ddb4", width=13)
+    draw.line((104, 151, 105, 100), fill="#74b88d", width=7)
+    draw.line((130, 124, 179, 125), fill="#74b88d", width=7)
     image.save(
         path, format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
     )
@@ -45,7 +48,9 @@ def make_icon(path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--only", choices=("controller", "agent"))
-    parser.add_argument("--package-only", action="store_true")
+    parser.add_argument(
+        "--package-only", action="store_true", help="Refresh checksums for existing client EXEs"
+    )
     selection = parser.parse_args()
     if os.name != "nt":
         raise RuntimeError("Windows EXE must be built on Windows")
@@ -58,7 +63,7 @@ def main() -> None:
     make_icon(icon)
     entries = [
         ("KintlerAgent", "agent_app.py", False),
-        ("KintlerController", "controller_app.py", False),
+        ("KintlerController", "terminal_entry.py", False),
     ]
     try:
         for name, entry, console in entries:
@@ -72,6 +77,7 @@ def main() -> None:
                 cargo = shutil.which("cargo") or str(Path.home() / ".cargo/bin/cargo.exe")
                 environment = dict(os.environ)
                 environment.pop("KINTLER_PUBLIC_URL", None)
+                environment["KINTLER_ICON_PATH"] = str(icon)
                 environment["RUSTFLAGS"] = (
                     environment.get("RUSTFLAGS", "") + " -C target-feature=+crt-static"
                 )
@@ -121,6 +127,10 @@ def main() -> None:
                     "mcp",
                     "--copy-metadata",
                     "mcp",
+                    "--collect-data",
+                    "textual",
+                    "--copy-metadata",
+                    "textual",
                     "--add-data",
                     f"{output / 'KintlerAgent.exe'};embedded",
                 ]
@@ -139,37 +149,12 @@ def main() -> None:
                     args += ["--add-data", f"{root / 'deploy' / item};deploy"]
             args += [str(root / "desktop" / entry)]
             command(args)
-        instructions = root / "docs/WINDOWS_EXE.md"
-        shutil.copyfile(instructions, output / "ПРОЧИТАТЬ.md")
         manifest = {
             name + ".exe": hashlib.sha256((output / (name + ".exe")).read_bytes()).hexdigest()
             for name, _, _ in entries
         }
-        for label, names in [
-            (
-                "Kintler-Controller-Windows",
-                ["KintlerController.exe", "KintlerAgent.exe"],
-            ),
-            ("Kintler-Agent-Windows", ["KintlerAgent.exe"]),
-        ]:
-            with zipfile.ZipFile(
-                output / (label + ".zip"), "w", compression=zipfile.ZIP_DEFLATED
-            ) as archive:
-                for name in names:
-                    archive.write(output / name, name)
-                archive.write(instructions, "ПРОЧИТАТЬ.md")
-                archive.writestr(
-                    "SHA256.json", json.dumps({name: manifest[name] for name in names}, indent=2)
-                )
         (output / "SHA256.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-        with zipfile.ZipFile(
-            output / "KintlerControl-Windows.zip", "w", compression=zipfile.ZIP_DEFLATED
-        ) as archive:
-            for name in manifest:
-                archive.write(output / name, name)
-            archive.write(instructions, "START_HERE.md")
-            archive.writestr("SHA256.json", json.dumps(manifest, indent=2))
-        print(f"Windows release ready: {output}")
+        print(f"Windows client EXEs and checksums ready: {output}")
     finally:
         shutil.rmtree(work)
 

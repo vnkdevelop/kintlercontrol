@@ -7,6 +7,7 @@ from typing import Any
 
 from aiohttp import web
 
+from common.activity import describe_action
 from common.protocol import ProtocolError, canonical
 from server.auth import Auth, Session
 from server.config import Settings
@@ -63,7 +64,13 @@ class Router:
             await asyncio.wait_for(node.socket.send_json(message), timeout=5)
 
     async def submit(
-        self, session: Session, node_id: str, tool: Any, args: Any, timeout: Any = None
+        self,
+        session: Session,
+        node_id: str,
+        tool: Any,
+        args: Any,
+        timeout: Any = None,
+        origin: Any = "controller",
     ) -> Command:
         if not isinstance(tool, str) or not session.credential.permits(node_id, tool):
             raise ProtocolError("Tool or node access denied")
@@ -71,6 +78,8 @@ class Router:
             raise ProtocolError("Session expired")
         if not isinstance(args, dict) or len(canonical(args)) > 192 * 1024:
             raise ProtocolError("Invalid command arguments")
+        if not isinstance(origin, str) or origin not in {"controller", "mcp"}:
+            raise ProtocolError("Invalid command origin")
         seconds = timeout if timeout is not None else self.settings.command_timeout
         if (
             isinstance(seconds, bool)
@@ -123,6 +132,8 @@ class Router:
                     "tool": tool,
                     "args": args,
                     "timeout": seconds,
+                    "origin": origin,
+                    "activity": describe_action(tool, args, origin),
                 },
             )
         except (ProtocolError, TimeoutError, ConnectionError):

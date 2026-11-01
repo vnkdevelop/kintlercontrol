@@ -6,7 +6,7 @@
 - After a request to change a personal Kintler service, implement the same functional change in the universal public implementation. Never maintain a personal-only feature or weaker public variant.
 - Keep protocols, tools, approval policy, security checks, limits and error handling identical. Only deployment configuration, owner identities and server addresses may differ.
 - Personal builds are the same generic code plus local configuration. Preserve legacy personal archives and active profiles; do not rewrite them without explicit authorization.
-- Every new agent connection requires an explicit owner decision and the fresh eight-digit code shown by Agent, entered in Controller. A known key is not a permanent access grant. Automated MCP setup never approves device access.
+- Every new agent connection requires an explicit owner decision and the fresh six-digit code shown by Agent, entered in Controller. A known key is not a permanent access grant. Automated MCP setup never approves device access.
 
 ## Privacy and publication
 
@@ -41,3 +41,4 @@
 - Query `graphify-out/graph.json` first when available, before listing or reading project code. After code/structure changes run `graphify update .`; graph output stays ignored.
 - Keep root `AGENTS.md`, `CLAUDE.md` and `GEMINI.md` semantically identical. OpenCode reads `AGENTS.md`, so it must be complete.
 - Work directly unless the user or applicable instructions explicitly request delegation.
+- Keep generic client EXEs/checksums in `dist/windows/` and public archives in `dist/releases/<version>/`. Personal ready-to-copy EXEs belong in `.private/clients/windows/`, server configuration in `.private/deployment/server/`, SSH settings in `.private/ssh/.env` and current reports in `.private/reports/`. Preserve user-data identities outside the repository; retain regression tests used by CI.

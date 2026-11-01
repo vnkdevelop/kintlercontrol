@@ -1,7 +1,7 @@
 import argparse
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from dotenv import load_dotenv
 from mcp.server.fastmcp import Context, FastMCP
@@ -16,7 +16,7 @@ class Runtime:
 
 @asynccontextmanager
 async def lifespan(server: FastMCP) -> AsyncIterator[Runtime]:
-    async with KintlerClient(ClientSettings.from_env()) as client:
+    async with KintlerClient(replace(ClientSettings.from_env(), origin="mcp")) as client:
         yield Runtime(client)
 
 
@@ -109,7 +109,7 @@ async def registry(
     value: str = "",
     value_type: str = "REG_SZ",
 ) -> dict:
-    """Query or set a local Windows registry value. Requires enabled tool and Administrator privileges; modifications need authorization."""
+    """Query a local Windows registry value under OS ACL, or set it with Administrator privileges and explicit authorization."""
     return await sdk(ctx).call(
         node,
         "registry",
@@ -125,7 +125,7 @@ async def registry(
 
 @mcp.tool()
 async def services(node: str, ctx: Context, operation: str = "list", name: str = "") -> dict:
-    """List, inspect, start or stop OS services. Linux also supports restart. Requires administrator privileges."""
+    """List/inspect OS services under OS ACL. Start/stop need Administrator/root and authorization; Linux supports restart."""
     return await sdk(ctx).call(node, "services", {"operation": operation, "name": name})
 
 
@@ -133,7 +133,7 @@ async def services(node: str, ctx: Context, operation: str = "list", name: str =
 async def tasks(
     node: str, ctx: Context, operation: str = "list", name: str = "", command: str = ""
 ) -> dict:
-    """List Windows scheduled tasks or explicitly create an ONLOGON task. Requires administrator privileges and user authorization."""
+    """List Windows tasks under OS ACL, or explicitly create an ONLOGON task with Administrator privileges and user authorization."""
     return await sdk(ctx).call(
         node, "tasks", {"operation": operation, "name": name, "command": command}
     )

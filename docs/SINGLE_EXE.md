@@ -19,7 +19,7 @@ It is never part of a public release. Moving an EXE to another PC does not move 
 The configured `KintlerAgent.exe` also works alone. Setup adds only the public HTTPS origin
 to its executable overlay; no key, password or JSON sidecar is needed. A generic public
 agent has no endpoint and must first be configured through the controller's Setup mode.
-Each new connection needs its fresh eight-digit Agent code entered by the owner in Controller,
+Each new connection needs its fresh six-digit Agent code entered by the owner in Controller,
 including known devices. Executable personalization currently
 targets unsigned EXE files; sign a configured binary afterwards if publisher signing is required.
 
@@ -35,6 +35,9 @@ It never rewrites unrelated Nginx configuration or restarts Docker/system servic
 
 Manual desktop control does not use MCP. The project skill at
 `.agents/skills/kintler-remote/SKILL.md` lets an AI set up its local MCP connection on request.
+It selects the current client's native MCP configuration instead of assuming OpenCode;
+client-specific JSON/TOML and CLI guidance is in the skill's `references/mcp-clients.md`.
+An existing Controller is reused, including portable locations; installation is only needed when absent.
 Its Windows installer downloads the official Controller, checks the published SHA-256,
 preserves existing EXEs and owner profiles, and cleans temporary files. Installing MCP does
 not issue an owner identity or authorize any device. The user still starts Agent, reads its

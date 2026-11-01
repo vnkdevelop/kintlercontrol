@@ -60,7 +60,7 @@ must be free and reachable. No particular hosting provider or country is require
 Get **`KintlerControl-Windows.zip`** from [Releases](https://github.com/vnkdevelop/kintlercontrol/releases/latest).
 Extract it on your **controller PC**. The controller itself is one self-contained EXE and can be moved anywhere.
 
-Run **`KintlerController.exe`** and use **Setup**, enter your HTTPS origin, choose an empty output folder,
+Run **`KintlerController.exe`** and use **`/setup HTTPS_URL OUTPUT`**, enter your HTTPS origin, choose an empty output folder,
 and select **Automatic HTTPS**. The wizard creates:
 
 ```text
@@ -99,9 +99,9 @@ working web-server configuration or start a second listener on an occupied port.
 Open **`KintlerController.exe`** on the owner PC. Copy only the generated **KintlerAgent.exe**
 to any folder on the target Windows PC and open it. Neither client needs adjacent JSON/CMD/helper EXE files.
 
-Select its request in **Approvals / Запросы** and enter the fresh eight-digit code
-shown by that agent, including for known devices. Approve the connection, then select
-the Online device and use its tools.
+Use `/requests` and `/approve <number> <six-digit code>` in the Controller terminal,
+using the code displayed by that Agent, including known devices. Then select its short
+name with `/use` and use `/help` for commands and descriptions.
 
 > A known key still needs a fresh code and new approval for every connection. There is no
 > “always allow” switch. A refusal or expired request does not grant future access.
@@ -161,7 +161,7 @@ GPU inventory is available; vendor-specific GPU-utilization providers are not pr
 
 ## AI integration
 
-Use the controller's **Connect AI / MCP** button to get the same controller EXE path and
+Use the controller's **`/mcp`** command to get the same controller EXE path and
 `--mcp --env` arguments. The bridge uses stdio on your owner PC, not an anonymous public
 MCP endpoint. Configure your AI client using its own MCP configuration format.
 
@@ -198,7 +198,7 @@ Development Compose uses the additional `docker-compose.dev.yml` override.
 
 ## One-file operation and safe deployment
 
-Use the Desktop shortcut button, or `KintlerController.exe --create-shortcut`, to create a native Windows shortcut.
+Use `/shortcut`, or `KintlerController.exe --create-shortcut`, to create a native Windows shortcut.
 The active protected profile is discovered from user data, independent of the executable's location.
 The same EXE also supports `--setup`, `--mcp`, and `--deploy` modes.
 
@@ -206,6 +206,7 @@ The generic deployment script is `scripts/deploy_remote.py`; copy `deploy/.env.e
 Run `KintlerController.exe --deploy --env PATH --dry-run` first, then deploy the dedicated Compose project.
 No real SSH target, key, owner registration or configured executable is in the public repository.
 See [single-EXE and deployment details](docs/SINGLE_EXE.md).
+See [terminal commands and interface](docs/TERMINAL.md).
 
 ## Project layout
 
@@ -217,7 +218,15 @@ client/        CLI, async SDK and MCP tools
 desktop/       controller and deployment wizard
 deploy/        generic proxy and bootstrap templates
 tests/         protocol, isolation, approval and setup regression tests
+scripts/       current build, validation, release and deployment commands
+.agents/skills/ reusable agent instructions, including Kintler MCP setup
+dist/windows/ current generic client EXEs and SHA-256 manifest
+dist/releases/ versioned public release archives
+.private/      ignored personal clients, deployment settings and current reports
 ```
+
+See [project layout and client locations](docs/PROJECT_LAYOUT.md). Personal configured clients
+are kept in `.private/clients/windows/`; do not publish or confuse them with generic binaries.
 
 Generated deployments, `.env` files, identities, databases, logs, build outputs,
 EXE files and graph caches are excluded from Git. Release binaries are built from

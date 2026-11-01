@@ -1,4 +1,4 @@
-# KintlerControl 1.3.1
+# KintlerControl 1.4.0
 
 Self-hosted release with two self-contained Windows EXE files and a portable Docker backend.
 
@@ -7,7 +7,10 @@ Self-hosted release with two self-contained Windows EXE files and a portable Doc
 - Setup creates a configured single-file Agent.exe with only a public endpoint, not credentials or a JSON sidecar.
 - Local protected profile discovery survives executable relocation; native desktop shortcuts are supported.
 - Automatic HTTPS through Caddy, or an existing HTTPS reverse proxy.
-- Every new agent connection requires explicit owner approval and a fresh eight-digit code from Agent entered in Controller, including known devices.
+- Both apps now use black/forest-green terminal interfaces and green leaf icons; the native Rust Agent shows a large six-digit code, then a read-only operator/AI activity log.
+- Controller connects saved profiles automatically, lists short device names, provides command descriptions/completion and bottom-right connection notifications instead of persistent configuration forms.
+- Every new agent connection requires explicit owner approval and a fresh six-digit code from Agent entered in Controller, including known devices.
+- Read-only registry/service/task inspection respects OS ACL without unnecessary forced elevation; mutations keep Admin/root checks and explicit operator confirmation.
 - Project AI skill installs a missing Controller from the official release with SHA-256 validation and registers local MCP on request; manual control does not need MCP.
 - Ed25519 identities, local Windows DPAPI protection, bounded commands and SHA-256 file transfer.
 - Standalone controller with integrated MCP bridge; no Python/Rust installation on client PCs.
