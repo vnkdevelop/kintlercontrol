@@ -2,6 +2,7 @@ import asyncio
 import os
 import secrets
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 
@@ -67,6 +68,41 @@ def test_all_tool_forms_and_conversions():
     assert dangerous("registry", {"operation": "set"})
     with pytest.raises(ValueError):
         arguments("download", {"remote_path": "file"})
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows controller dialog")
+@pytest.mark.parametrize("code", [None, "12345678"])
+def test_controller_requires_manual_code_for_known_device(monkeypatch, code):
+    from desktop.controller_app import ControllerApp
+
+    app = object.__new__(ControllerApp)
+    app.root = None
+    app.request_tree = Mock()
+    app.request_tree.selection.return_value = ["request"]
+    app.can_approve = True
+    app.client = Mock()
+    app.bridge = Mock()
+    app.requests = {
+        "request": {
+            "request_id": "request",
+            "name": "device",
+            "node_id": "node_test",
+            "peer": "127.0.0.1",
+            "fingerprint": "fixture",
+            "known": True,
+            "code_required": True,
+        }
+    }
+    prompt = Mock(return_value=code)
+    monkeypatch.setattr("desktop.controller_app.simpledialog.askstring", prompt)
+    ControllerApp.decide_connection(app, True)
+    prompt.assert_called_once()
+    if code is None:
+        app.client.approve.assert_not_called()
+        app.bridge.submit.assert_not_called()
+    else:
+        app.client.approve.assert_called_once_with("request", True, code)
+        app.bridge.submit.assert_called_once_with(app.client.approve.return_value, "approval_done")
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Native Windows Tk GUI")

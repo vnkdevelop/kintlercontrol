@@ -286,7 +286,7 @@ class ControllerApp:
         code = ""
         if allow and request["code_required"]:
             value = simpledialog.askstring(
-                "Сопряжение нового устройства",
+                "Подтверждение подключения",
                 f"{request['name']} / {request['node_id']}\nIP: {request['peer']}\nКлюч: {request['fingerprint']}\n\nВведите 8-значный код из окна нужного Agent.exe:",
                 parent=self.root,
             )

@@ -99,11 +99,11 @@ working web-server configuration or start a second listener on an occupied port.
 Open **`KintlerController.exe`** on the owner PC. Copy only the generated **KintlerAgent.exe**
 to any folder on the target Windows PC and open it. Neither client needs adjacent JSON/CMD/helper EXE files.
 
-Select its request in **Approvals / Запросы**. For a new or changed device key,
-enter the eight-digit code shown by the agent. Approve the connection, then select
+Select its request in **Approvals / Запросы** and enter the fresh eight-digit code
+shown by that agent, including for known devices. Approve the connection, then select
 the Online device and use its tools.
 
-> A known key still needs a new approval for every connection. There is no
+> A known key still needs a fresh code and new approval for every connection. There is no
 > “always allow” switch. A refusal or expired request does not grant future access.
 
 ## Security model

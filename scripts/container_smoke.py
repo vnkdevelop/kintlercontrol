@@ -87,6 +87,12 @@ async def exercise(
             await asyncio.sleep(0.2)
         else:
             raise TimeoutError("TLS container did not become ready")
+    pairing_codes: dict[str, str] = {}
+
+    def observe(event: str, detail: dict) -> None:
+        if event == "waiting":
+            pairing_codes[detail["request_id"]] = detail["code"]
+
     device = Agent(
         AgentSettings(
             url,
@@ -97,7 +103,8 @@ async def exercise(
             directory / "workspace",
             TOOLS,
             ca_file=ca,
-        )
+        ),
+        observer=observe,
     )
     async with aiohttp.ClientSession() as http:
         task = asyncio.create_task(device.connect(http))
@@ -106,7 +113,9 @@ async def exercise(
                 async with asyncio.timeout(20):
                     for _ in range(200):
                         for request in await client.approvals():
-                            await client.approve(request["request_id"], True)
+                            code = pairing_codes.get(request["request_id"])
+                            if code:
+                                await client.approve(request["request_id"], True, code)
                         if any(n["id"] == node and n["online"] for n in await client.nodes()):
                             break
                         if task.done():
@@ -137,7 +146,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Isolated TLS container smoke test; removes only its own containers, network and temporary files"
     )
-    parser.add_argument("--image", default="kintlercontrol:1.3.0")
+    parser.add_argument("--image", default="kintlercontrol:1.3.1")
     args = parser.parse_args()
     suffix = secrets.token_hex(4)
     network, relay, proxy = ("kintler-smoke-" + suffix + tag for tag in ("-net", "-relay", "-tls"))

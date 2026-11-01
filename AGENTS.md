@@ -6,7 +6,7 @@
 - After a request to change a personal Kintler service, implement the same functional change in the universal public implementation. Never maintain a personal-only feature or weaker public variant.
 - Keep protocols, tools, approval policy, security checks, limits and error handling identical. Only deployment configuration, owner identities and server addresses may differ.
 - Personal builds are the same generic code plus local configuration. Preserve legacy personal archives and active profiles; do not rewrite them without explicit authorization.
-- Every new agent connection requires an explicit owner decision. A known key is not a permanent access grant.
+- Every new agent connection requires an explicit owner decision and the fresh eight-digit code shown by Agent, entered in Controller. A known key is not a permanent access grant. Automated MCP setup never approves device access.
 
 ## Privacy and publication
 

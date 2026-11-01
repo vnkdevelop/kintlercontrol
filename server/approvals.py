@@ -42,7 +42,7 @@ class Request:
             "peer": self.peer,
             "expires": self.expires,
             "known": self.known,
-            "code_required": not self.known,
+            "code_required": True,
             "fingerprint": fingerprint(self.session.credential.public_key)
             if self.session.credential.public_key
             else "Legacy HMAC identity",
@@ -125,10 +125,12 @@ class Approvals:
         async with request.deciding:
             if request.decided or request.socket.closed or request.expires <= time.time():
                 raise ProtocolError("This connection approval is no longer valid")
-            if (
-                approve
-                and not request.known
-                and (not isinstance(code, str) or not hmac.compare_digest(code, request.code))
+            if approve and not (
+                isinstance(code, str)
+                and len(code) == 8
+                and code.isascii()
+                and code.isdigit()
+                and hmac.compare_digest(code, request.code)
             ):
                 request.failures += 1
                 if request.failures >= 5:

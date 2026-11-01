@@ -257,7 +257,9 @@ async def run(root: Path, temporary: Path) -> None:
                             await asyncio.sleep(0.1)
                     request = requests[0]
                     assert (
-                        request["known"] and not app[SERVICE].registry.nodes[node].view()["online"]
+                        request["known"]
+                        and request["code_required"]
+                        and not app[SERVICE].registry.nodes[node].view()["online"]
                     )
                     await client.approve(request["request_id"], False)
                     await asyncio.wait_for(repeated.wait(), 30)

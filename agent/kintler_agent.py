@@ -6,6 +6,7 @@ import logging
 import os
 import random
 import socket
+import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -312,6 +313,17 @@ class Agent:
                 delay = min(60, delay * 2)
 
 
+def display_approval(event: str, detail: dict) -> None:
+    if event == "waiting":
+        if sys.stdout.isatty():
+            print(
+                f"Enter this connection's eight-digit code in Controller: {detail['code']}",
+                flush=True,
+            )
+        else:
+            logger.warning("Manual approval required; use an interactive agent to read its code")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Kintler agent for explicitly enrolled devices")
     parser.add_argument("--env", default=".env", help="Local environment configuration")
@@ -323,7 +335,12 @@ def main() -> None:
     load_dotenv(args.env)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     try:
-        asyncio.run(Agent(AgentSettings.from_env(Path(args.env).resolve().parent)).run())
+        asyncio.run(
+            Agent(
+                AgentSettings.from_env(Path(args.env).resolve().parent),
+                observer=display_approval,
+            ).run()
+        )
     except KeyboardInterrupt:
         pass
 

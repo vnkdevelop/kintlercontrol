@@ -47,7 +47,11 @@ async def test_agent_not_routable_until_authentication_ack(tmp_path: Path, monke
                     while not await client.approvals():
                         await asyncio.sleep(0.01)
                 pending = (await client.approvals())[0]
-                await client.approve(pending["request_id"], True)
+                await client.approve(
+                    pending["request_id"],
+                    True,
+                    service.approvals.requests[pending["request_id"]].code,
+                )
                 await asyncio.wait_for(published.wait(), 5)
                 assert (await client.nodes())[0]["online"] is False
                 with pytest.raises(ProtocolError, match="offline"):

@@ -33,7 +33,7 @@ pub fn admin() -> bool {
 pub fn metadata(config: &Config, system: &mut System) -> Value {
     system.refresh_cpu_usage();
     system.refresh_memory();
-    json!({"name":config.name,"platform":"Windows","user":std::env::var("USERNAME").unwrap_or_default(),"admin":admin(),"version":"1.3.0-rust","tools":config.tools,"telemetry":{"cpu_percent":system.global_cpu_usage(),"ram_total":system.total_memory(),"ram_percent":100.0*(system.used_memory() as f64)/(system.total_memory().max(1) as f64),"uptime":System::uptime()}})
+    json!({"name":config.name,"platform":"Windows","user":std::env::var("USERNAME").unwrap_or_default(),"admin":admin(),"version":"1.3.1-rust","tools":config.tools,"telemetry":{"cpu_percent":system.global_cpu_usage(),"ram_total":system.total_memory(),"ram_percent":100.0*(system.used_memory() as f64)/(system.total_memory().max(1) as f64),"uptime":System::uptime()}})
 }
 
 fn process_created(pid: u32) -> Option<f64> {

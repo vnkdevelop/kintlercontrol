@@ -74,7 +74,11 @@ async def environment(tmp_path: Path):
                         if task.done():
                             task.result()
                     for pending in await approver.approvals():
-                        await approver.approve(pending["request_id"], True)
+                        await approver.approve(
+                            pending["request_id"],
+                            True,
+                            app[SERVICE].approvals.requests[pending["request_id"]].code,
+                        )
                     await asyncio.sleep(0.02)
             try:
                 yield Environment(

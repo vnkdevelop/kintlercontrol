@@ -1,4 +1,5 @@
 import asyncio
+import io
 import secrets
 from pathlib import Path
 
@@ -6,9 +7,9 @@ import aiohttp
 import pytest
 from aiohttp.test_utils import TestServer
 
-from agent.kintler_agent import Agent, AgentSettings
+from agent.kintler_agent import Agent, AgentSettings, display_approval
 from client.kintler_sdk import ClientSettings, KintlerClient
-from common.identity import new_private_key, signed_auth
+from common.identity import new_private_key, public_key, signed_auth
 from common.protocol import TOOLS, ApprovalDenied, ProtocolError
 from server.app import SERVICE, create_app
 from server.config import Credential, Settings
@@ -32,7 +33,9 @@ async def ready(service, node: str, online: bool) -> None:
             await asyncio.sleep(0.01)
 
 
-async def test_every_reconnection_requires_fresh_owner_decision(tmp_path: Path):
+async def test_every_reconnection_requires_fresh_owner_decision(tmp_path: Path, monkeypatch):
+    codes = iter([12345678, 87654321, 11223344])
+    monkeypatch.setattr("server.approvals.secrets.randbelow", lambda limit: next(codes))
     owner = Credential(
         "owner", secrets.token_urlsafe(48), nodes=frozenset({"*"}), tools=TOOLS, can_approve=True
     )
@@ -65,6 +68,8 @@ async def test_every_reconnection_requires_fresh_owner_decision(tmp_path: Path):
                 tasks.append(first)
                 request = await pending(client)
                 assert request["code_required"] and not request["known"]
+                assert "code" not in request
+                first_code = service.approvals.requests[request["request_id"]].code
                 assert await client.nodes() == []
                 assert await outsider.approvals() == []
                 with pytest.raises(ProtocolError, match="denied"):
@@ -89,13 +94,30 @@ async def test_every_reconnection_requires_fresh_owner_decision(tmp_path: Path):
                 tasks.append(second)
                 repeated = await pending(client)
                 assert repeated["request_id"] != request["request_id"]
-                assert repeated["known"] and not repeated["code_required"]
+                assert repeated["known"] and repeated["code_required"]
+                assert "code" not in repeated
                 assert not (await client.nodes())[0]["online"]
+                second_code = service.approvals.requests[repeated["request_id"]].code
+                assert second_code != first_code
+                for invalid in ("", first_code, "１２３４５６７８", 87654321):
+                    with pytest.raises(ProtocolError, match="code"):
+                        await client.approve(repeated["request_id"], True, invalid)
+                    assert not (await client.nodes())[0]["online"]
                 with pytest.raises(ProtocolError, match="not found"):
                     await client.approve(request["request_id"], True)
-                await client.approve(repeated["request_id"], False)
+                await client.approve(repeated["request_id"], True, second_code)
+                await ready(service, "node_new", True)
+                assert (await client.call("node_new", "sysinfo"))["ok"]
+                second.cancel()
+                await asyncio.gather(second, return_exceptions=True)
+                await ready(service, "node_new", False)
+                third = asyncio.create_task(Agent(settings).connect(http))
+                tasks.append(third)
+                declined = await pending(client)
+                assert declined["known"] and declined["code_required"]
+                await client.approve(declined["request_id"], False)
                 with pytest.raises(ApprovalDenied):
-                    await asyncio.wait_for(second, 5)
+                    await asyncio.wait_for(third, 5)
                 assert not service.registry.nodes["node_new"].view()["online"]
         finally:
             for task in tasks:
@@ -129,9 +151,12 @@ async def test_disconnect_and_expiry_do_not_cache_approval(tmp_path: Path):
                     )
                 ).connect(http)
             )
-            await pending(client)
+            request = await pending(client)
+            code = service.approvals.requests[request["request_id"]].code
             with pytest.raises(ApprovalDenied):
                 await asyncio.wait_for(task, 5)
+            with pytest.raises(ProtocolError, match="not found"):
+                await client.approve(request["request_id"], True, code)
             assert not service.approvals.requests
             assert not service.registry.nodes
             assert await service.storage.load_agent_keys() == []
@@ -152,3 +177,53 @@ async def test_agent_cannot_send_commands_while_waiting(tmp_path: Path):
             await socket.send_json({"type": "result", "result": {"ok": True}})
             assert (await socket.receive_json())["type"] == "error"
         assert not app[SERVICE].registry.nodes
+
+
+@pytest.mark.parametrize("known", [False, True])
+async def test_five_wrong_codes_deny_new_and_known_devices(tmp_path: Path, monkeypatch, known):
+    monkeypatch.setattr("server.approvals.secrets.randbelow", lambda limit: 12345678)
+    owner = Credential(
+        "owner", secrets.token_urlsafe(48), nodes=frozenset({"*"}), tools=TOOLS, can_approve=True
+    )
+    key = new_private_key()
+    credentials = {"owner": owner}
+    if known:
+        credentials["node_test"] = Credential(
+            "node_test", "", "agent", "node_test", public_key=public_key(key)
+        )
+    app = create_app(Settings(credentials, tmp_path / "db", allow_local_http=True))
+    async with TestServer(app) as server, aiohttp.ClientSession() as http:
+        url = str(server.make_url("")).rstrip("/")
+        async with (
+            KintlerClient(ClientSettings(url, "owner", owner.secret, True)) as client,
+            http.ws_connect(server.make_url("/ws/agent")) as socket,
+        ):
+            challenge = await socket.receive_json()
+            auth = signed_auth(key, challenge, "node_test", "node_test")
+            auth["metadata"] = {"name": "device", "tools": ["sysinfo"]}
+            await socket.send_json(auth)
+            waiting = await socket.receive_json()
+            assert waiting["type"] == "approval_required"
+            request = await pending(client)
+            assert request["known"] is known and request["code_required"]
+            assert "code" not in request
+            for _ in range(5):
+                with pytest.raises(ProtocolError, match="code"):
+                    await client.approve(request["request_id"], True, "00000000")
+            assert (await socket.receive_json(timeout=5))["type"] == "approval_denied"
+            assert not app[SERVICE].registry.nodes
+            with pytest.raises(ProtocolError):
+                await client.approve(request["request_id"], True, waiting["code"])
+
+
+@pytest.mark.parametrize("interactive", [False, True])
+def test_pairing_code_is_displayed_only_in_an_interactive_console(monkeypatch, caplog, interactive):
+    class Console(io.StringIO):
+        def isatty(self):
+            return interactive
+
+    output = Console()
+    monkeypatch.setattr("agent.kintler_agent.sys.stdout", output)
+    display_approval("waiting", {"code": "12345678"})
+    assert ("12345678" in output.getvalue()) is interactive
+    assert "12345678" not in caplog.text

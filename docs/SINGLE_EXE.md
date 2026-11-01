@@ -19,7 +19,8 @@ It is never part of a public release. Moving an EXE to another PC does not move 
 The configured `KintlerAgent.exe` also works alone. Setup adds only the public HTTPS origin
 to its executable overlay; no key, password or JSON sidecar is needed. A generic public
 agent has no endpoint and must first be configured through the controller's Setup mode.
-Each new connection still needs owner approval. Executable personalization currently
+Each new connection needs its fresh eight-digit Agent code entered by the owner in Controller,
+including known devices. Executable personalization currently
 targets unsigned EXE files; sign a configured binary afterwards if publisher signing is required.
 
 ## Deployment safety
@@ -30,6 +31,15 @@ The deployer checks existing services/containers, refuses different owner creden
 backs up its own configuration, preserves data volumes and rolls back on failure.
 It never rewrites unrelated Nginx configuration or restarts Docker/system services.
 
+## AI connection
+
+Manual desktop control does not use MCP. The project skill at
+`.agents/skills/kintler-remote/SKILL.md` lets an AI set up its local MCP connection on request.
+Its Windows installer downloads the official Controller, checks the published SHA-256,
+preserves existing EXEs and owner profiles, and cleans temporary files. Installing MCP does
+not issue an owner identity or authorize any device. The user still starts Agent, reads its
+code and enters it in Controller; there is no additional confirmation button on Agent.
+
 ## Русский
 
 Контроллер переносится одним EXE. Мастер, MCP и CLI деплоя находятся внутри него;
@@ -38,7 +48,8 @@ It never rewrites unrelated Nginx configuration or restarts Docker/system servic
 
 Настроенный агент также переносится одним EXE: внутри только публичный адрес, не секреты.
 При первом запуске он создаёт собственный ключ под DPAPI; каждое соединение требует
-нового подтверждения владельца. Публичные бинарники не привязаны к чьему-либо серверу.
+нового кода из окна Agent и подтверждения владельца в Controller, даже для знакомого ключа.
+На ПК с Agent дополнительных кнопок не нужно. Публичные бинарники не привязаны к чьему-либо серверу.
 
 SSH-реквизиты деплоя заполняются только в локальном игнорируемом `.env`. Сначала используйте
 `--dry-run`; затем деплой обновляет только указанный Compose-проект с backup/rollback.
