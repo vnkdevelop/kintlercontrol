@@ -42,20 +42,34 @@ tests, packaging and public installations keep working.
 ```text
 dist/
   windows/                         generic EXEs + SHA256.json, used by build/smoke/CI
-  releases/v1.4.0/                 current public Windows/backend ZIPs + SHA256SUMS.txt
+  releases/v1.5.0/                 complete bundle + skill ZIP + Controller bootstrap + SHA256SUMS.txt
 .private/
   clients/windows/                 configured personal Agent + portable Controller
   deployment/server/               actual server kit: .env, Compose, public registration, proxy files
   deployment/DeployServer.cmd       convenient wrapper for the installed Controller --deploy mode
   ssh/.env                         ignored SSH and deployment settings
   reports/                         current functional, safety and cleanup reports
+  archives/releases/               previous public downloads retained for rollback
+  deployment/backups/              previous local client/config revisions retained for rollback
 ```
 
 `dist/windows/KintlerAgent.exe` is generic: configure it through Controller Setup before use.
 It is not the personal ready-to-copy Agent. Public distributions are assembled with
-`scripts.assemble_release`; the Windows build no longer creates three duplicate client ZIPs.
+`scripts.assemble_release`; the complete bundle stores the portable backend image only once.
 Other release versions may be kept explicitly when needed for rollback; obsolete local
 artifacts can be removed without changing published GitHub releases.
+
+The source keeps compatibility entrypoints and Linux/Python tooling. The obsolete Tk UI, old tool-form generator and unused generated leaf SVG were removed; current user-provided PNG/ICO sources remain required by Windows and native builds. Tests and lockfiles are required, not disposable examples.
+
+## Complete public download
+
+`KintlerControl-Bundle.zip` contains `START_HERE.md`, `MANIFEST.json`, `LICENSE`, `clients/windows/`, `server/`, `skills/kintler-remote/` and `docs/`. It has no configured endpoint, owner registration, private profile or device identity. The separate skill ZIP is for host import; the standalone Controller is a small bootstrap for agents, not a second MCP application.
+
+## AI-host storage on your PC
+
+User skill copies are outside the repository: `~/.agents/skills` (Codex/shared hosts), `~/.config/opencode/skills`, `~/.claude/skills`, `~/.gemini/skills`, `~/.gemini/config/skills` (Antigravity), `~/.copilot/skills`, and legacy/installed-host compatibility locations when present. Each receives only generic skill files. Host MCP configuration is separate and stores an EXE path/arguments, not the owner key.
+
+Your owner identity and device keys stay under `%LOCALAPPDATA%\KintlerControl`; the installed Controller stays under `%LOCALAPPDATA%\Programs\KintlerControl`. These locations, `.private/`, `dist/`, build/cache directories and the knowledge graph are not tracked. Server data and audit live in the deployment's Docker volume, not in Git. `.env.example` files contain names/placeholders only.
 
 ## Safe personal deployment
 

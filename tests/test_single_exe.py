@@ -51,3 +51,30 @@ def test_shortcut_uses_native_windows_api(tmp_path: Path):
     assert link.is_file() and link.stat().st_size > 100
     with pytest.raises(FileExistsError):
         create_shortcut(executable, link)
+
+
+def test_setup_discovers_portable_image_in_complete_bundle(tmp_path: Path, monkeypatch):
+    from desktop.deployment import create_deployment
+
+    bundle = tmp_path / "bundle"
+    executable = bundle / "clients/windows/KintlerController.exe"
+    executable.parent.mkdir(parents=True)
+    executable.write_bytes(b"fixture")
+    image = bundle / "server/kintlercontrol-image.tar"
+    image.parent.mkdir()
+    image.write_bytes(b"portable tested image fixture")
+    embedded = tmp_path / "embedded"
+    embedded.mkdir()
+    (embedded / "KintlerAgent.exe").write_bytes(b"generic agent")
+    monkeypatch.setattr("sys.frozen", True, raising=False)
+    monkeypatch.setattr("sys.executable", str(executable))
+    result = create_deployment(
+        "https://relay.example.com",
+        tmp_path / "output",
+        embedded,
+        tmp_path / "owner/.env",
+        "existing",
+    )
+    assert (tmp_path / "output/server/kintlercontrol-image.tar").read_bytes() == image.read_bytes()
+    assert "docker load" in result["start_command"]
+    assert "kintlercontrol:1.5.0" in (tmp_path / "output/server/.env").read_text(encoding="utf-8")

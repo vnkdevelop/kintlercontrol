@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kintlercontrol"
-version = "1.4.0"
+version = "1.5.0"
 description = "Authenticated remote management relay, agent and controller"
 requires-python = ">=3.12"
 dependencies = ["aiohttp>=3.11,<4", "psutil>=6.1,<8", "python-dotenv>=1.0,<2", "cryptography>=45,<51"]
@@ -36,6 +36,7 @@ packages = ["server", "agent", "client", "common", "scripts", "desktop", "deploy
 "deploy/Caddyfile" = "desktop/resources/deploy/Caddyfile"
 "deploy/nginx.conf" = "desktop/resources/deploy/nginx.conf"
 "deploy/existing-nginx.conf" = "desktop/resources/deploy/existing-nginx.conf"
+".agents/skills/kintler-remote" = "desktop/resources/skills/kintler-remote"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

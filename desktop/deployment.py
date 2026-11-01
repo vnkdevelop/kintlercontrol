@@ -77,11 +77,21 @@ def _create_deployment(
     else:
         start = "docker compose up -d"
     portable_image = binaries / "kintlercontrol-image.tar"
+    if not portable_image.is_file() and getattr(sys, "frozen", False):
+        executable_folder = Path(sys.executable).resolve().parent
+        candidates = [
+            executable_folder / "kintlercontrol-image.tar",
+            executable_folder / "server/kintlercontrol-image.tar",
+            executable_folder.parent.parent / "server/kintlercontrol-image.tar",
+        ]
+        portable_image = next(
+            (candidate for candidate in candidates if candidate.is_file()), portable_image
+        )
     if portable_image.is_file():
         shutil.copyfile(portable_image, server / "kintlercontrol-image.tar")
         from dotenv import set_key
 
-        set_key(str(server / ".env"), "KINTLER_IMAGE", "kintlercontrol:1.4.0")
+        set_key(str(server / ".env"), "KINTLER_IMAGE", "kintlercontrol:1.5.0")
         start = "docker load --input kintlercontrol-image.tar && " + start
     instructions = f"""# Your KintlerControl server\n\nRelay: {url}\n\n1. Point your DNS hostname to your server. Install Docker Engine + Compose.\n2. Extract this folder on the server (not inside a public web directory).\n3. Run: `{start}`\n4. Open your controller and start the generated Agent folder on the target PC.\n5. Approve each new connection. For an unknown key, enter the code shown by the agent.\n\nAutomatic mode requires TCP 80/443. Existing-proxy mode requires your own TLS reverse proxy.\nDo not delete Docker volumes when updating. Private client keys are NOT in this server kit.\n\n# Запуск сервера\n\nНастройте DNS, установите Docker с Compose, распакуйте папку на сервере и выполните указанную команду.\nВ автоматическом режиме HTTPS выпускается Caddy; нужны свободные TCP 80/443 и доступный домен.\nВ режиме существующего прокси настройте свой HTTPS reverse proxy.\nПриватные ключи клиентов остаются на их ПК. Каждое новое соединение требует подтверждения.\n"""
     (server / "START_HERE.md").write_text(instructions, encoding="utf-8")

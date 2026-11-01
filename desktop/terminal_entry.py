@@ -78,6 +78,18 @@ def setup_main() -> None:
 
 
 def main() -> None:
+    if "--install-skill" in sys.argv or "--mcp-config" in sys.argv:
+        mode = "--install-skill" if "--install-skill" in sys.argv else "--mcp-config"
+        sys.argv.remove(mode)
+        from desktop.stdio import restored_stdio
+
+        if mode == "--install-skill":
+            from scripts.install_skill import main as integration_main
+        else:
+            from scripts.mcp_config import main as integration_main
+        with restored_stdio():
+            integration_main()
+        return
     if "--mcp" in sys.argv:
         sys.argv.remove("--mcp")
         from desktop.mcp_entry import main as mcp_main

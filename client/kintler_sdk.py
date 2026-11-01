@@ -260,6 +260,7 @@ class KintlerClient:
         target = Path(destination).resolve()
         if target.exists() and not overwrite:
             raise ProtocolError("Local destination exists; explicit overwrite is required")
+        target.parent.mkdir(parents=True, exist_ok=True)
         info = await self.checked(node, "download", {"operation": "stat", "path": source})
         temporary = target.with_name(".kintler-" + secrets.token_hex(16) + ".part")
         digest = hashlib.sha256()

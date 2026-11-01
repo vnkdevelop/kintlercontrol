@@ -43,7 +43,7 @@ remembers identities, **not permanent access grants**.
 - Process inventory and PID-reuse checks before termination.
 - PNG screenshots of an interactive Windows desktop.
 - Windows registry, services and scheduled tasks, gated by actual OS privileges.
-- 12 MCP tools for permitted-device management from your AI client.
+- 13 MCP tools for permitted-device management from your AI client, including message windows.
 
 Use this software only on devices you own or are explicitly authorized to manage.
 
@@ -55,13 +55,12 @@ Have Docker Engine + Compose installed and point a DNS hostname, such as
 `relay.example.com`, to your server. For automatic HTTPS, ports **80 and 443**
 must be free and reachable. No particular hosting provider or country is required.
 
-### 2. Download the Windows kit
+### 2. Download the complete kit
 
-Get **`KintlerControl-Windows.zip`** from [Releases](https://github.com/vnkdevelop/kintlercontrol/releases/latest).
-Extract it on your **controller PC**. The controller itself is one self-contained EXE and can be moved anywhere.
+Get **`KintlerControl-Bundle.zip`** from [Releases](https://github.com/vnkdevelop/kintlercontrol/releases/latest).
+Extract it on your **controller PC**. Open `START_HERE.md`; the kit includes `clients/windows/` with two EXEs, `server/` with the tested Docker image/templates, `skills/kintler-remote/` and documentation. The Controller itself remains one portable EXE.
 
-Run **`KintlerController.exe`** and use **`/setup HTTPS_URL OUTPUT`**, enter your HTTPS origin, choose an empty output folder,
-and select **Automatic HTTPS**. The wizard creates:
+Run **`clients/windows/KintlerController.exe`** and use **`/setup HTTPS_URL OUTPUT`** with your own HTTPS origin and an empty output folder. Automatic HTTPS is the default; use `--mode existing-proxy` for your existing proxy. Setup creates:
 
 ```text
 Your-Deployment/
@@ -86,7 +85,7 @@ docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
 Caddy obtains and renews the HTTPS certificate automatically. The relay stays
 behind the proxy; its direct host port is loopback-only.
 
-The complete Windows release also includes a portable backend image. When present,
+The complete bundle includes a portable backend image under `server/`. When present,
 the wizard adds it to the server kit and writes a `docker load` command before
 Compose—no registry login or local image build is required.
 
@@ -99,9 +98,15 @@ working web-server configuration or start a second listener on an occupied port.
 Open **`KintlerController.exe`** on the owner PC. Copy only the generated **KintlerAgent.exe**
 to any folder on the target Windows PC and open it. Neither client needs adjacent JSON/CMD/helper EXE files.
 
-Use `/requests` and `/approve <number> <six-digit code>` in the Controller terminal,
-using the code displayed by that Agent, including known devices. Then select its short
+Use `/approve` in the Controller terminal, choose the pending device and enter the
+six-digit code displayed by its Agent, including known devices. Then select its short
 name with `/use` and use `/help` for commands and descriptions.
+
+### 5. Enable AI access when needed
+
+In Controller, run `/install-skill` to install the bundled instructions for local skills-compatible AI hosts. Then ask your agent to "use Kintler on DEVICE". The skill locates the existing Controller, registers stdio MCP in that agent's own host and verifies `nodes()`/`capabilities()`—without SSH, duplicated installations or embedding keys in host settings. `/approve` remains a human action.
+
+Standalone `KintlerControl-Skill.zip` and the checksum-verified Controller bootstrap EXE are available for AI setup without downloading the backend again. See [AI setup](docs/AI_SETUP.md) and [project/private layout](docs/PROJECT_LAYOUT.md).
 
 > A known key still needs a fresh code and new approval for every connection. There is no
 > “always allow” switch. A refusal or expired request does not grant future access.

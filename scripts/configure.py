@@ -50,7 +50,7 @@ def configure(args: argparse.Namespace) -> None:
                 "KINTLER_ALLOW_LOCAL_HTTP": "1" if args.local_http else "0",
                 "KINTLER_TLS_CERT": f"/etc/letsencrypt/live/{urlsplit(args.url).hostname}/fullchain.pem",
                 "KINTLER_TLS_KEY": f"/etc/letsencrypt/live/{urlsplit(args.url).hostname}/privkey.pem",
-                "KINTLER_IMAGE": "ghcr.io/vnkdevelop/kintlercontrol:1.4.0",
+                "KINTLER_IMAGE": "ghcr.io/vnkdevelop/kintlercontrol:1.5.0",
             },
             create_only=True,
         )

@@ -1,34 +1,63 @@
 import argparse
+import hashlib
 import json
 import tarfile
+import tomllib
 import zipfile
 from pathlib import Path
 
+from scripts.release_layout import BUNDLE_NAME, SKILL_ARCHIVE_NAME, SKILL_FILES, bundle_sources
+
 
 def check(directory: Path) -> None:
-    allowed_windows = {
-        "KintlerAgent.exe",
-        "KintlerController.exe",
-        "kintlercontrol-image.tar",
-        "START_HERE.md",
-    }
-    allowed_backend = {
-        "kintlercontrol-image.tar",
-        "docker-compose.yml",
-        "docker-compose.caddy.yml",
-        "docker-compose.tls.yml",
-        ".env.example",
-        "Caddyfile",
-        "bootstrap_backend.py",
-        "DEPLOYMENT.md",
-    }
+    root = Path(__file__).resolve().parents[1]
+    files = bundle_sources(root, directory)
+    version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "version"
+    ]
     for filename, allowed in (
-        ("KintlerControl-Windows.zip", allowed_windows),
-        ("KintlerControl-Backend.zip", allowed_backend),
+        (BUNDLE_NAME, set(files) | {"MANIFEST.json"}),
+        (SKILL_ARCHIVE_NAME, {"kintler-remote/" + name for name in SKILL_FILES}),
     ):
         with zipfile.ZipFile(directory / filename) as archive:
-            if set(archive.namelist()) != allowed or archive.testzip() is not None:
+            if (
+                len(archive.namelist()) != len(allowed)
+                or set(archive.namelist()) != allowed
+                or archive.testzip() is not None
+            ):
                 raise ValueError("Public release includes unexpected files or is corrupt")
+            if filename == BUNDLE_NAME:
+                manifest = json.loads(archive.read("MANIFEST.json"))
+                if manifest.get("version") != version or set(manifest.get("files", {})) != set(
+                    files
+                ):
+                    raise ValueError("Bundle manifest version or payload differs")
+                for name, record in manifest["files"].items():
+                    with archive.open(name) as handle:
+                        checksum = hashlib.sha256()
+                        while data := handle.read(1024 * 1024):
+                            checksum.update(data)
+                        digest = checksum.hexdigest()
+                    if (
+                        digest != record["sha256"]
+                        or archive.getinfo(name).file_size != record["size"]
+                    ):
+                        raise ValueError("Bundle payload checksum differs")
+                if (
+                    archive.read("clients/windows/KintlerController.exe")
+                    != (directory / "KintlerController.exe").read_bytes()
+                ):
+                    raise ValueError("Controller bootstrap is not the same generic client")
+                if archive.read("clients/windows/KintlerAgent.exe")[-8:] == b"KCAGENT1":
+                    raise ValueError(
+                        "A configured personal Agent was included in the public bundle"
+                    )
+                clients = json.loads(archive.read("clients/windows/SHA256.json"))
+                if set(clients) != {"KintlerController.exe", "KintlerAgent.exe"} or any(
+                    hashlib.sha256(archive.read("clients/windows/" + name)).hexdigest() != digest
+                    for name, digest in clients.items()
+                ):
+                    raise ValueError("Client checksums do not match the generic bundle EXEs")
     image = directory / "backend/kintlercontrol-image.tar"
     with tarfile.open(image) as archive:
         stream = archive.extractfile("manifest.json")

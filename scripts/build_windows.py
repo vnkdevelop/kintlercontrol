@@ -7,7 +7,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
 
 
 def command(argv: list[str], env: dict[str, str] | None = None) -> None:
@@ -16,33 +16,14 @@ def command(argv: list[str], env: dict[str, str] | None = None) -> None:
     )
 
 
-def make_icon(path: Path) -> None:
-    image = Image.new("RGBA", (256, 256), "#090e0b")
-    draw = ImageDraw.Draw(image)
-    curves = [
-        ((59, 164), (37, 98), (95, 49), (199, 39)),
-        ((199, 39), (192, 146), (150, 204), (83, 186)),
-    ]
-    points = []
-    for curve in curves:
-        for step in range(65):
-            t = step / 64
-            points.append(
-                tuple(
-                    (1 - t) ** 3 * curve[0][axis]
-                    + 3 * (1 - t) ** 2 * t * curve[1][axis]
-                    + 3 * (1 - t) * t**2 * curve[2][axis]
-                    + t**3 * curve[3][axis]
-                    for axis in (0, 1)
-                )
-            )
-    draw.polygon(points, fill="#246943")
-    draw.line((65, 197, 171, 76), fill="#a4ddb4", width=13)
-    draw.line((104, 151, 105, 100), fill="#74b88d", width=7)
-    draw.line((130, 124, 179, 125), fill="#74b88d", width=7)
-    image.save(
-        path, format="ICO", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
-    )
+def make_icon(path: Path, source: Path | None = None) -> None:
+    source = source or Path(__file__).resolve().parents[1] / "desktop/assets/kintler-controller.png"
+    with Image.open(source) as image:
+        image.convert("RGBA").save(
+            path,
+            format="ICO",
+            sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)],
+        )
 
 
 def main() -> None:
@@ -59,8 +40,17 @@ def main() -> None:
     output.mkdir(parents=True, exist_ok=True)
     work = root / "build/windows"
     work.mkdir(parents=True, exist_ok=True)
-    icon = work / "kintler.ico"
-    make_icon(icon)
+    icons = {
+        "KintlerAgent": work / "kintler-agent.ico",
+        "KintlerController": work / "kintler-controller.ico",
+    }
+    for name, icon in icons.items():
+        make_icon(
+            icon,
+            root
+            / "desktop/assets"
+            / ("kintler-agent.png" if name == "KintlerAgent" else "kintler-controller.png"),
+        )
     entries = [
         ("KintlerAgent", "agent_app.py", False),
         ("KintlerController", "terminal_entry.py", False),
@@ -77,7 +67,7 @@ def main() -> None:
                 cargo = shutil.which("cargo") or str(Path.home() / ".cargo/bin/cargo.exe")
                 environment = dict(os.environ)
                 environment.pop("KINTLER_PUBLIC_URL", None)
-                environment["KINTLER_ICON_PATH"] = str(icon)
+                environment["KINTLER_ICON_PATH"] = str(icons[name])
                 environment["RUSTFLAGS"] = (
                     environment.get("RUSTFLAGS", "") + " -C target-feature=+crt-static"
                 )
@@ -116,7 +106,7 @@ def main() -> None:
                 "--paths",
                 str(root),
                 "--icon",
-                str(icon),
+                str(icons[name]),
                 "--collect-all",
                 "mss",
                 "--console" if console else "--windowed",
@@ -133,6 +123,8 @@ def main() -> None:
                     "textual",
                     "--add-data",
                     f"{output / 'KintlerAgent.exe'};embedded",
+                    "--add-data",
+                    f"{root / '.agents/skills/kintler-remote'};skills/kintler-remote",
                 ]
                 for item in (
                     "docker-compose.yml",

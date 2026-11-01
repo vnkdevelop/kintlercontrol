@@ -16,28 +16,33 @@ class CommandSpec:
 COMMANDS = (
     CommandSpec("help", "Все команды и примеры", "/help [команда]"),
     CommandSpec("devices", "Устройства: связь, права и состояние", "/devices"),
-    CommandSpec("use", "Выбрать ПК для следующих команд", "/use имя_или_номер"),
+    CommandSpec("use", "Выбрать доступный ПК из списка", "/use [имя_или_номер]"),
     CommandSpec("requests", "Ожидающие подключения", "/requests"),
-    CommandSpec("approve", "Разрешить подключение по коду из Agent", "/approve номер_или_имя код"),
+    CommandSpec(
+        "approve", "Выбрать устройство и ввести код из Agent", "/approve [имя_или_номер] [код]"
+    ),
     CommandSpec("deny", "Отклонить подключение без доступа", "/deny номер_или_имя"),
     CommandSpec("sysinfo", "CPU, RAM, диски, сеть и права", "/sysinfo"),
     CommandSpec("ps", "Процессы и время их создания", "/ps --sort ram --limit 20"),
     CommandSpec(
         "shell", "Команда на выбранном ПК", "/shell команда | /shell --cwd папка -- команда"
     ),
+    CommandSpec("message", "Показать окно с вашим текстом на Windows-ПК", "/message ваш текст"),
     CommandSpec("kill", "Завершить конкретный процесс", "/kill PID время_создания [--force]"),
     CommandSpec(
         "upload",
         "Файл с этого ПК на выбранное устройство",
-        "/upload локальный_файл удалённый_путь [--overwrite]",
+        "/upload [локальный_файл] [удалённый_путь] [--overwrite]",
     ),
     CommandSpec(
         "download",
         "Файл с устройства на этот ПК",
-        "/download удалённый_путь локальный_файл [--overwrite]",
+        "/download [удалённый_путь] [локальный_файл] [--overwrite]",
     ),
     CommandSpec(
-        "screenshot", "Снимок экрана устройства в PNG", "/screenshot локальный.png [--monitor 1]"
+        "screenshot",
+        "Снимок в Изображения / KintlerControl",
+        "/screenshot [локальный.png] [--monitor 1]",
     ),
     CommandSpec(
         "registry",
@@ -53,7 +58,9 @@ COMMANDS = (
         "/tasks list | /tasks create --name имя --command команда",
     ),
     CommandSpec("permissions", "Доступные инструменты и ограничения", "/permissions"),
-    CommandSpec("connect", "Подключиться с сохранённым профилем", "/connect"),
+    CommandSpec(
+        "reconnect", "Восстановить связь с Kintler; доступ к ПК — через /approve", "/reconnect"
+    ),
     CommandSpec("profile", "Выбрать локальный профиль владельца", "/profile путь_к_.env"),
     CommandSpec(
         "setup",
@@ -61,6 +68,9 @@ COMMANDS = (
         "/setup https://relay.example.com папка [--mode existing-proxy]",
     ),
     CommandSpec("mcp", "Подключение AI без передачи ключа", "/mcp"),
+    CommandSpec(
+        "install-skill", "Установить скилл Kintler локальным AI-агентам", "/install-skill [host]"
+    ),
     CommandSpec("shortcut", "Создать ярлык Controller", "/shortcut"),
     CommandSpec("cancel", "Отменить текущие операции на ПК", "/cancel"),
     CommandSpec("disconnect", "Завершить свою сессию Controller", "/disconnect"),
@@ -79,7 +89,12 @@ class Invocation:
 
 class CommandParser(argparse.ArgumentParser):
     def error(self, message: str) -> Never:
-        raise ValueError(message)
+        if self.prog == "/approve":
+            raise ValueError("Откройте /approve и введите 6 цифр из Agent в появившемся поле.")
+        name = self.prog.lstrip("/")
+        raise ValueError(
+            f"Укажите параметры команды. Пример: {SPECS[name].usage}\n/help {name} — описание"
+        )
 
     def exit(self, status: int = 0, message: str | None = None) -> Never:
         raise ValueError(message or "Некорректные аргументы команды")
@@ -97,19 +112,31 @@ def parse_command(value: str) -> Invocation:
     value = value.strip()
     if not value:
         raise ValueError("Введите команду или /help")
+    if value.isdigit():
+        if not value.isascii() or len(value) != 6:
+            raise ValueError("Введите ровно 6 цифр из Agent или откройте /approve.")
+        return Invocation("approve", {"target": "", "code": value}, value)
     if not value.startswith("/"):
         return Invocation(
             "shell", {"command": value, "shell": None, "cwd": ".", "timeout": 120}, value
         )
     name, _, tail = value[1:].partition(" ")
     name = name.lower()
+    if name == "connect":
+        name = "reconnect"
     if name not in SPECS:
         raise ValueError(f"Неизвестная команда /{name}. Откройте /help")
+    if name == "message":
+        if not tail.strip() or "\0" in tail or len(tail) > 2000:
+            raise ValueError("Укажите текст сообщения: /message ваш текст (до 2000 символов).")
+        return Invocation(name, {"text": tail}, value)
     parser = CommandParser(prog=f"/{name}", add_help=False)
     if name in {"help", "use", "profile", "approve", "deny"}:
-        parser.add_argument("target", nargs="?" if name == "help" else None, default="")
+        parser.add_argument(
+            "target", nargs="?" if name in {"help", "approve", "use"} else None, default=""
+        )
         if name == "approve":
-            parser.add_argument("code")
+            parser.add_argument("code", nargs="?", default="")
     elif name == "ps":
         parser.add_argument("--sort", choices=("ram", "cpu", "pid"), default="ram")
         parser.add_argument("--limit", type=int, default=20)
@@ -137,10 +164,10 @@ def parse_command(value: str) -> Invocation:
         for argument in (
             ("local_path", "remote_path") if name == "upload" else ("remote_path", "local_path")
         ):
-            parser.add_argument(argument)
+            parser.add_argument(argument, nargs="?", default="")
         parser.add_argument("--overwrite", action="store_true")
     elif name == "screenshot":
-        parser.add_argument("local_path")
+        parser.add_argument("local_path", nargs="?", default="")
         parser.add_argument("--monitor", type=int, default=1)
     elif name == "registry":
         parser.add_argument("operation", choices=("query", "set"))
@@ -176,9 +203,35 @@ def parse_command(value: str) -> Invocation:
         parser.add_argument("url")
         parser.add_argument("output")
         parser.add_argument("--mode", choices=("existing-proxy", "automatic"), default="automatic")
+    elif name == "install-skill":
+        parser.add_argument(
+            "host",
+            nargs="?",
+            default="all",
+            choices=(
+                "all",
+                "shared",
+                "opencode",
+                "codex",
+                "claude",
+                "gemini",
+                "antigravity",
+                "copilot",
+                "cursor",
+            ),
+        )
     data = vars(parser.parse_args(words(tail)))
-    if name == "approve" and (
-        not data["code"].isascii() or not data["code"].isdigit() or len(data["code"]) != 6
+    if (
+        name == "approve"
+        and not data["code"]
+        and len(data["target"]) >= 6
+        and data["target"].isdigit()
+    ):
+        data["code"], data["target"] = data["target"], ""
+    if (
+        name == "approve"
+        and data["code"]
+        and (not data["code"].isascii() or not data["code"].isdigit() or len(data["code"]) != 6)
     ):
         raise ValueError("Введите 6-значный код из Agent")
     if name == "ps" and not 1 <= data["limit"] <= 500:

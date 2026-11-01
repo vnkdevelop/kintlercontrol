@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 from mcp.server.fastmcp import Context, FastMCP
 
 from client.kintler_sdk import ClientSettings, KintlerClient
+from common.protocol import ProtocolError
+from desktop.presets import message_command
 
 
 @dataclass
@@ -62,6 +64,22 @@ async def shell(
 async def sysinfo(node: str, ctx: Context) -> dict:
     """Read CPU, RAM, disks, network adapters, uptime and privilege level."""
     return await sdk(ctx).call(node, "sysinfo")
+
+
+@mcp.tool()
+async def message(node: str, text: str, ctx: Context) -> dict:
+    """Show explicitly requested literal text on an interactive Windows desktop. Uses shell permission; waits for OK/cancel or 120 seconds."""
+    client = sdk(ctx)
+    selected = await client.resolve(node)
+    devices = await client.nodes()
+    if not any(
+        device["id"] == selected and device["platform"].lower().startswith("windows")
+        for device in devices
+    ):
+        raise ProtocolError("Message windows require an interactive Windows device")
+    args = message_command(text)
+    timeout = args.pop("timeout")
+    return await client.call(selected, "shell", args, timeout)
 
 
 @mcp.tool()

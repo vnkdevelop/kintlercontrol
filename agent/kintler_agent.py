@@ -159,7 +159,14 @@ class Agent:
             message["tool"],
             message["session_id"],
         )
-        self.notify("command", {"command_id": message["command_id"], "tool": message["tool"], "activity": message.get("activity", message["tool"])})
+        self.notify(
+            "command",
+            {
+                "command_id": message["command_id"],
+                "tool": message["tool"],
+                "activity": message.get("activity", message["tool"]),
+            },
+        )
         try:
             timeout = message["timeout"]
             async with asyncio.timeout(timeout):

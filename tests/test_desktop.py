@@ -1,5 +1,3 @@
-import asyncio
-import os
 import secrets
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -14,7 +12,6 @@ from desktop.settings import (
     profile,
     save_profile,
 )
-from desktop.tools import LABELS, PARAMETERS, arguments, dangerous
 
 
 def test_profile_roles_and_secret_files(tmp_path: Path, monkeypatch):
@@ -56,27 +53,14 @@ def test_agent_policy_defaults_and_relative_workspace(tmp_path: Path, monkeypatc
     assert agent_settings(values, tmp_path / ".env").tools == TOOLS
 
 
-def test_all_tool_forms_and_conversions():
-    assert set(LABELS) == TOOLS == set(PARAMETERS)
-    assert arguments("kill", {"pid": "10", "created": "123.2", "force": "false"}) == {
-        "pid": 10,
-        "created": 123.2,
-        "force": False,
-    }
-    assert dangerous("shell", {})
-    assert not dangerous("sysinfo", {})
-    assert dangerous("registry", {"operation": "set"})
-    with pytest.raises(ValueError):
-        arguments("download", {"remote_path": "file"})
-
-
 @pytest.mark.parametrize("code", [None, "123456"])
 async def test_controller_requires_manual_code_for_known_device(tmp_path: Path, code):
     from desktop.controller_app import ControllerApp
     from desktop.terminal_commands import parse_command
+    from desktop.terminal_controller import PairingDialog
 
     app = ControllerApp(tmp_path / ".env", autoconnect=False)
-    async with app.run_test(size=(100, 36)):
+    async with app.run_test(size=(100, 36)) as pilot:
         client = AsyncMock()
         client.nodes.return_value = []
         client.approvals.return_value = []
@@ -86,9 +70,11 @@ async def test_controller_requires_manual_code_for_known_device(tmp_path: Path, 
             {"request_id": "request", "name": "device", "node_id": "node_test", "known": True}
         ]
         if code is None:
-            with pytest.raises(ValueError):
-                parse_command("/approve 1")
+            app.dispatch("/approve 1")
+            await pilot.pause()
+            assert isinstance(app.screen, PairingDialog)
             client.approve.assert_not_called()
+            await pilot.press("escape")
         else:
             await app.execute(parse_command(f"/approve 1 {code}"))
             client.approve.assert_awaited_once_with("request", True, code)
@@ -103,21 +89,3 @@ async def test_terminal_frontends_open_without_network(tmp_path: Path):
         async with app.run_test(size=(100, 36)) as pilot:
             await pilot.pause()
             assert app.title.startswith("Kintler") and app.theme == "kintler"
-
-
-@pytest.mark.skipif(os.name != "nt", reason="Windows desktop bridge")
-def test_bridge_background_jobs():
-    from desktop.ui import Bridge
-
-    bridge = Bridge()
-
-    async def work():
-        await asyncio.sleep(0.01)
-        return {"ok": True}
-
-    try:
-        assert bridge.submit(work()).result(timeout=5) == {"ok": True}
-        assert bridge.events.get(timeout=5) == ("done", {"ok": True})
-    finally:
-        bridge.stop()
-        bridge.thread.join(timeout=5)

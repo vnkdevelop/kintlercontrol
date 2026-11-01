@@ -79,29 +79,54 @@ struct View {
     name: String,
     status: String,
     code: Option<String>,
+    online: bool,
     logs: VecDeque<String>,
     scroll: u16,
 }
 
 impl View {
     fn event(&mut self, text: String) {
-        if let Some((_, code)) = text.split_once("Код: ") {
+        if let Some(action) = text
+            .strip_prefix("Оператор ·")
+            .or_else(|| text.strip_prefix("AI ·"))
+        {
+            self.action(action.trim_start().to_string());
+            return;
+        }
+        if text.starts_with("Ожидает")
+            && let Some((_, code)) = text.split_once("Код: ")
+        {
             self.code = Some(code.trim().to_string());
-            self.status = "Доступ закрыт · введите этот код в Controller".into();
+            self.online = false;
+            self.status = "Ожидаем разрешение · в Controller: /approve и код ниже".into();
             return;
         }
         if text.starts_with("Online") {
             self.code = None;
-            self.status = "Online · пользователь и AI могут выполнять разрешённые действия".into();
-        } else if text.contains("отклонено")
-            || text.contains("закрыто")
-            || text.contains("разорвана")
+            self.online = true;
+            self.logs.clear();
+            self.status = "Подключено · доступ разрешён".into();
+            return;
+        } else if text.starts_with("Подключение отклонено")
+            || text.starts_with("Соединение закрыто")
+            || text.starts_with("Связь разорвана")
             || text.starts_with("Нет связи:")
             || text.starts_with("Соединение заменено")
         {
             self.code = None;
-            self.status = "Доступ закрыт · новое подключение требует нового кода".into();
+            self.online = false;
+            self.status =
+                "Нет доступа · r — получить новый код; затем /approve в Controller".into();
+            return;
         }
+        if !self.online {
+            self.status = "Подключение к Kintler… · код появится автоматически".into();
+            return;
+        }
+        self.action(text);
+    }
+
+    fn action(&mut self, text: String) {
         if self.logs.len() >= 240 {
             self.logs.pop_front();
         }
@@ -178,7 +203,7 @@ fn draw(frame: &mut Frame, view: &View) {
             .rev()
             .map(|line| {
                 Line::from(vec![
-                    Span::styled("› ", Style::default().fg(GREEN)),
+                    Span::styled("  ", Style::default().fg(GREEN)),
                     Span::raw(line.as_str()),
                 ])
             })
@@ -186,7 +211,11 @@ fn draw(frame: &mut Frame, view: &View) {
         frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), parts[1]);
     }
     frame.render_widget(
-        Paragraph::new("Действия оператора и AI отображаются здесь. Секреты скрываются.\n↑ ↓ журнал    r повторное подключение    q выход")
+        Paragraph::new(if view.online {
+            "↑ ↓ прокрутка    r — получить новый код    q — выход"
+        } else {
+            "В Controller: /approve → введите код из этого окна.\nr — получить новый код    q — выход"
+        })
             .style(Style::default().fg(MUTED)),
         parts[2],
     );
@@ -237,6 +266,7 @@ pub fn run(config: Arc<Config>, title: Option<&str>) -> Result<()> {
         ),
         status: "Подключаемся · до ввода кода доступа нет".into(),
         code: None,
+        online: false,
         logs: VecDeque::new(),
         scroll: 0,
     };
@@ -275,7 +305,8 @@ pub fn run(config: Arc<Config>, title: Option<&str>) -> Result<()> {
                             receiver = next_receiver;
                             handle = Some(next_handle);
                             view.code = None;
-                            view.status = "Повторное подключение · нужен новый код".into();
+                            view.online = false;
+                            view.status = "Получаем новый код · затем /approve в Controller".into();
                             dirty = true;
                         }
                         _ => {}
@@ -303,6 +334,7 @@ pub fn snapshot() -> Result<String> {
         name: "Demo device".into(),
         status: "Доступ закрыт".into(),
         code: Some("123456".into()),
+        online: false,
         logs: VecDeque::new(),
         scroll: 0,
     };
@@ -328,6 +360,7 @@ mod tests {
             name: "test".into(),
             status: String::new(),
             code: None,
+            online: false,
             logs: VecDeque::new(),
             scroll: 0,
         };
@@ -342,5 +375,12 @@ mod tests {
             view.event("Оператор · sysinfo".into());
         }
         assert_eq!(view.logs.len(), 240);
+        assert_eq!(view.logs.back().unwrap(), "sysinfo");
+        view.event("AI · shell echo Код: 123456; echo закрыто".into());
+        assert!(view.code.is_none() && view.online);
+        assert_eq!(
+            view.logs.back().unwrap(),
+            "shell echo Код: 123456; echo закрыто"
+        );
     }
 }

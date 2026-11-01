@@ -213,6 +213,30 @@ async def run(root: Path, temporary: Path) -> None:
             "setup": "KintlerController.exe",
         }.items()
     }
+    for mode, arguments in (
+        ("config", ["--mcp-config", "--host", "opencode"]),
+        ("skill", ["--install-skill", "--host", "shared", "--dry-run"]),
+    ):
+        process = await asyncio.create_subprocess_exec(
+            "cmd.exe",
+            "/d",
+            "/s",
+            "/c",
+            subprocess.list2cmdline([str(executables["controller"]), *arguments]),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), 60)
+            assert process.returncode == 0, f"Frozen integration mode {mode} failed"
+            value = json.loads(stdout)
+            if mode == "config":
+                assert value["type"] == "local" and value["command"][1:] == ["--mcp"]
+                assert "enabled" not in value
+            else:
+                assert value["dry_run"] and value["skill"] == "kintler-remote"
+        finally:
+            await terminate(process)
     for role, executable in executables.items():
         result = temporary / (role + "-startup.json")
         prefix = ["--mcp"] if role == "mcp" else ["--setup"] if role == "setup" else []
@@ -370,7 +394,7 @@ async def run(root: Path, temporary: Path) -> None:
                     ClientSession(reader, writer) as session,
                 ):
                     await asyncio.wait_for(session.initialize(), 60)
-                    assert len((await session.list_tools()).tools) == 12
+                    assert len((await session.list_tools()).tools) == 13
                     mcp_result = await session.call_tool("sysinfo", {"node": node})
                     content = mcp_result.content[0]
                     assert isinstance(content, TextContent)

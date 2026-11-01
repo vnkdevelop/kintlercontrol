@@ -13,7 +13,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-      - run: uv sync --locked --python 3.12 --extra dev --extra ai --extra screen
+      - run: uv sync --locked --python 3.12 --extra dev --extra ai --extra screen --extra desktop
       - run: uv run --no-sync ruff check .
       - run: uv run --no-sync ruff format --check .
       - run: uv run --no-sync mypy server agent client common scripts deploy

@@ -19,7 +19,7 @@ def main() -> None:
         tools = asyncio.run(mcp.list_tools())
         args.self_test.write_text(
             json.dumps(
-                {"ok": len(tools) == 12, "role": "mcp", "tools": [tool.name for tool in tools]}
+                {"ok": len(tools) == 13, "role": "mcp", "tools": [tool.name for tool in tools]}
             ),
             encoding="utf-8",
         )

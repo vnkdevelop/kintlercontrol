@@ -13,6 +13,7 @@ from textual.widgets import RichLog, Static
 
 from agent.fingerprint import node_id
 from agent.kintler_agent import Agent, AgentSettings
+from common.activity import display_action
 from common.identity import unlock
 from common.protocol import SAFE_TOOLS, TOOLS
 from desktop.settings import profile
@@ -22,7 +23,7 @@ from desktop.terminal_theme import ACCENT, BACKGROUND, FOREGROUND, PRIMARY, SURF
 class TerminalAgent(App[None]):
     TITLE = "Kintler · Agent"
     ENABLE_COMMAND_PALETTE = False
-    BINDINGS = [("q", "close", "Выход"), ("r", "reconnect", "Подключиться снова")]
+    BINDINGS = [("q", "close", "Выход"), ("r", "reconnect", "Получить новый код")]
     CSS = """
     Screen { background: #090e0b; color: #d8e5db; padding: 2 4; }
     #heading { height: 2; color: #8fcca4; text-style: bold; }
@@ -59,7 +60,7 @@ class TerminalAgent(App[None]):
         yield Static("Ожидаем код подключения…", id="code", markup=False)
         yield RichLog(id="activity", wrap=True, max_lines=600, markup=False)
         yield Static(
-            "Действия оператора и AI отображаются здесь.\nq выход    r новое подключение",
+            "r — получить новый код    q — выход",
             id="footer",
         )
 
@@ -72,22 +73,28 @@ class TerminalAgent(App[None]):
         if event == "waiting":
             self.screen.remove_class("online")
             self.query_one("#code", Static).update(
-                "КОД ДОСТУПА\n\n" + big_code(detail["code"]) + "\n\nВведите 6 цифр в Controller"
+                "КОД ДОСТУПА\n\n"
+                + big_code(detail["code"])
+                + "\n\nВ Controller: /approve → введите эти 6 цифр"
             )
             state.update("Доступ закрыт · каждое соединение подтверждается отдельно")
         elif event == "connected":
             self.screen.add_class("online")
             self.query_one("#code", Static).update("")
-            state.update("Online · подключение разрешено владельцем")
+            self.query_one("#activity", RichLog).clear()
+            state.update("Подключено · доступ разрешён")
         elif event in {"denied", "disconnected", "retry"}:
             self.screen.remove_class("online")
             self.query_one("#code", Static).update(
-                "Доступ закрыт\n\nr — запросить новое подключение"
+                "Доступ закрыт\n\nr — получить новый код; затем /approve в Controller"
             )
             state.update("Нет доступа · новое подключение требует нового кода")
         elif event == "command":
             self.query_one("#activity", RichLog).write(
-                Text("› " + detail.get("activity", detail["tool"]), style=FOREGROUND)
+                Text(
+                    display_action(detail.get("activity", detail["tool"])),
+                    style=FOREGROUND,
+                )
             )
 
     @work(exclusive=True, group="agent")

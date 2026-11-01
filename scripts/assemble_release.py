@@ -1,52 +1,48 @@
 import argparse
 import hashlib
+import json
+import shutil
+import tomllib
 import zipfile
 from pathlib import Path
 
+from scripts.release_layout import BUNDLE_NAME, SKILL_ARCHIVE_NAME, SKILL_FILES, bundle_sources
+
 
 def assemble(directory: Path) -> None:
-    windows = directory / "windows"
-    clients = list(windows.rglob("*.exe"))
-    expected = {"KintlerAgent.exe", "KintlerController.exe"}
-    if {path.name for path in clients} != expected:
-        raise ValueError(
-            "Release must contain exactly the two self-contained generic client executables"
-        )
-    image = directory / "backend/kintlercontrol-image.tar"
-    if not image.is_file():
-        raise ValueError("Tested portable backend image is missing")
     root = Path(__file__).resolve().parents[1]
+    files = bundle_sources(root, directory)
+    version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
+        "version"
+    ]
+    manifest = {"schema": 1, "product": "KintlerControl", "version": version, "files": {}}
+    for name, path in files.items():
+        with path.open("rb") as handle:
+            digest = hashlib.file_digest(handle, "sha256").hexdigest()
+        manifest["files"][name] = {"sha256": digest, "size": path.stat().st_size}
+    with zipfile.ZipFile(directory / BUNDLE_NAME, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, path in files.items():
+            archive.write(path, name)
+        archive.writestr("MANIFEST.json", json.dumps(manifest, indent=2))
     with zipfile.ZipFile(
-        directory / "KintlerControl-Windows.zip", "w", compression=zipfile.ZIP_DEFLATED
+        directory / SKILL_ARCHIVE_NAME, "w", compression=zipfile.ZIP_DEFLATED
     ) as archive:
-        for file in clients:
-            archive.write(file, file.name)
-        archive.write(image, "kintlercontrol-image.tar")
-        archive.write(root / "docs/WINDOWS_EXE.md", "START_HERE.md")
-    with zipfile.ZipFile(
-        directory / "KintlerControl-Backend.zip", "w", compression=zipfile.ZIP_DEFLATED
-    ) as archive:
-        archive.write(image, image.name)
-        for name in (
-            "docker-compose.yml",
-            "docker-compose.caddy.yml",
-            "docker-compose.tls.yml",
-            ".env.example",
-        ):
-            archive.write(root / name, name)
-        archive.write(root / "deploy/Caddyfile", "Caddyfile")
-        archive.write(root / "deploy/bootstrap_backend.py", "bootstrap_backend.py")
-        archive.write(root / "docs/DEPLOYMENT.md", "DEPLOYMENT.md")
+        for name in SKILL_FILES:
+            archive.write(files["skills/kintler-remote/" + name], "kintler-remote/" + name)
+    shutil.copyfile(
+        files["clients/windows/KintlerController.exe"], directory / "KintlerController.exe"
+    )
     lines = []
-    for file in sorted(directory.glob("*.zip")):
-        digest = hashlib.sha256()
+    for filename in (BUNDLE_NAME, SKILL_ARCHIVE_NAME, "KintlerController.exe"):
+        file = directory / filename
+        checksum = hashlib.sha256()
         with file.open("rb") as handle:
             while data := handle.read(1024 * 1024):
-                digest.update(data)
-        lines.append(f"{digest.hexdigest()}  {file.name}")
+                checksum.update(data)
+        lines.append(f"{checksum.hexdigest()}  {file.name}")
     (directory / "SHA256SUMS.txt").write_text("\n".join(lines) + "\n")
     print(
-        "Generic release assembled. No owner registration, deployment address or private profiles included."
+        "Generic all-in-one bundle, portable skill and small Controller bootstrap assembled; no personal configuration included."
     )
 
 

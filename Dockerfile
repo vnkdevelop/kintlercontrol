@@ -11,12 +11,15 @@ COPY client ./client
 COPY scripts ./scripts
 COPY desktop ./desktop
 COPY deploy ./deploy
+COPY .agents/skills/kintler-remote ./.agents/skills/kintler-remote
 RUN /opt/venv/bin/pip install --no-cache-dir --no-deps .
 
 FROM builder AS test
 COPY requirements-test.lock ./
 RUN /opt/venv/bin/pip install --no-cache-dir --require-hashes -r requirements-test.lock
 COPY tests ./tests
+COPY docs ./docs
+COPY LICENSE .env.example ./
 CMD ["/opt/venv/bin/python", "-m", "pytest", "-q", "--basetemp=/tmp/kintler-tests", "-p", "no:cacheprovider"]
 
 FROM python:3.12-slim-bookworm

@@ -48,3 +48,11 @@ def describe_action(tool: str, args: dict, origin: str = "controller") -> str:
     else:
         details = ""
     return redact(f"{actor} · {tool}  {details}".strip())
+
+
+def display_action(value: str) -> str:
+    for prefix in ("Оператор ·", "AI ·"):
+        if value.startswith(prefix):
+            value = value[len(prefix) :].lstrip()
+            break
+    return redact(value)
