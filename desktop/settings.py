@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 from pathlib import Path
 
@@ -15,7 +17,56 @@ def profile(role: str) -> Path:
     if role not in {"agent", "controller"}:
         raise ValueError("Unknown application role")
     base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local/share")))
+    active = base / "KintlerControl/active-controller.json"
+    if role == "controller" and active.is_file():
+        try:
+            selected = Path(json.loads(active.read_text(encoding="utf-8"))["profile"])
+            if (
+                selected.name == ".env"
+                and selected.is_file()
+                and selected.resolve().is_relative_to((base / "KintlerControl").resolve())
+            ):
+                return selected
+        except (ValueError, KeyError, OSError):
+            pass
     return base / "KintlerControl" / role / ".env"
+
+
+def activate_profile(path: Path) -> None:
+    base = (
+        Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local/share"))) / "KintlerControl"
+    )
+    selected = path.resolve()
+    if (
+        selected.name != ".env"
+        or not selected.is_file()
+        or not selected.is_relative_to(base.resolve())
+    ):
+        raise ValueError(
+            "Active controller profile must be a local .env inside KintlerControl user data"
+        )
+    controller_settings(load_profile(selected, "controller"))
+    base.mkdir(parents=True, exist_ok=True)
+    temporary = base / "active-controller.json.tmp"
+    temporary.write_text(json.dumps({"profile": str(selected)}), encoding="utf-8")
+    temporary.replace(base / "active-controller.json")
+
+
+def owner_profile_for_origin(url: str) -> Path:
+    current = profile("controller")
+    if current.is_file():
+        try:
+            if load_profile(current, "controller").get("KINTLER_URL", "").rstrip("/") == url.rstrip(
+                "/"
+            ):
+                return current
+        except (ValueError, OSError):
+            pass
+    base = (
+        Path(os.environ.get("LOCALAPPDATA", str(Path.home() / ".local/share"))) / "KintlerControl"
+    )
+    realm = hashlib.sha256(url.rstrip("/").encode()).hexdigest()[:16]
+    return base / "owners" / realm / ".env"
 
 
 def load_profile(path: Path, role: str) -> dict[str, str]:

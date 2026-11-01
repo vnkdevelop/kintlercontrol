@@ -9,8 +9,6 @@ def check(directory: Path) -> None:
     allowed_windows = {
         "KintlerAgent.exe",
         "KintlerController.exe",
-        "KintlerMCP.exe",
-        "KintlerSetup.exe",
         "kintlercontrol-image.tar",
         "START_HERE.md",
     }

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kintlercontrol"
-version = "1.2.0"
+version = "1.3.0"
 description = "Authenticated remote management relay, agent and controller"
 requires-python = ">=3.12"
 dependencies = ["aiohttp>=3.11,<4", "psutil>=6.1,<8", "python-dotenv>=1.0,<2", "cryptography>=45,<51"]

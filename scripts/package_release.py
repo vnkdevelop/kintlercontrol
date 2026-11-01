@@ -57,7 +57,7 @@ def main() -> None:
             path.name.startswith(".env") or path.suffix in {".key", ".pem", ".pyc"}
         ):
             raise RuntimeError("Secret/temporary file found in release input")
-    destination = root / "dist" / "kintlercontrol-source-1.2.0.zip"
+    destination = root / "dist" / "kintlercontrol-source-1.3.0.zip"
     destination.parent.mkdir(exist_ok=True)
     manifest = {
         path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()

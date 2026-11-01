@@ -1,6 +1,6 @@
 services:
   relay:
-    image: ${KINTLER_IMAGE:-ghcr.io/vnkdevelop/kintlercontrol:1.2.0}
+    image: ${KINTLER_IMAGE:-ghcr.io/vnkdevelop/kintlercontrol:1.3.0}
     env_file: .env
     environment:
       KINTLER_DATABASE: /app/data/kintler.sqlite3

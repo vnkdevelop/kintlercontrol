@@ -32,9 +32,7 @@ remembers identities, **not permanent access grants**.
 | Component | Purpose |
 |---|---|
 | `KintlerAgent.exe` | Native Rust / Win32 agent, no Python or WebView installation |
-| `KintlerController.exe` | Desktop inventory, approval queue, commands and file tools |
-| `KintlerSetup.exe` | Creates your local owner identity and ready-to-deploy server kit |
-| `KintlerMCP.exe` | Local stdio bridge for MCP-compatible AI clients |
+| `KintlerController.exe` | Complete desktop app: inventory, approval, commands, setup, MCP and deployment modes |
 | Docker relay | Authentication, routing, inventory and audit on your infrastructure |
 
 ### Tools
@@ -60,9 +58,9 @@ must be free and reachable. No particular hosting provider or country is require
 ### 2. Download the Windows kit
 
 Get **`KintlerControl-Windows.zip`** from [Releases](https://github.com/vnkdevelop/kintlercontrol/releases/latest).
-Extract it on your **controller PC**. Keep the four EXE files together.
+Extract it on your **controller PC**. The controller itself is one self-contained EXE and can be moved anywhere.
 
-Run **`KintlerSetup.exe`**, enter your HTTPS origin, choose an empty output folder,
+Run **`KintlerController.exe`** and use **Setup**, enter your HTTPS origin, choose an empty output folder,
 and select **Automatic HTTPS**. The wizard creates:
 
 ```text
@@ -70,8 +68,7 @@ Your-Deployment/
 ├── server-kit.zip       # upload this to your server
 ├── server/              # Compose, public owner registration and instructions
 └── Agent/
-    ├── KintlerAgent.exe
-    └── kintler-agent.json
+    └── KintlerAgent.exe  # configured single executable, no JSON sidecar
 ```
 
 Your private owner key stays on your PC under Windows DPAPI.
@@ -99,8 +96,8 @@ working web-server configuration or start a second listener on an occupied port.
 
 ### 4. Connect a device
 
-Open **`KintlerController.exe`** on the owner PC. Copy the generated **Agent folder**
-to the target Windows PC, keeping EXE and JSON together, and open the agent.
+Open **`KintlerController.exe`** on the owner PC. Copy only the generated **KintlerAgent.exe**
+to any folder on the target Windows PC and open it. Neither client needs adjacent JSON/CMD/helper EXE files.
 
 Select its request in **Approvals / Запросы**. For a new or changed device key,
 enter the eight-digit code shown by the agent. Approve the connection, then select
@@ -164,8 +161,8 @@ GPU inventory is available; vendor-specific GPU-utilization providers are not pr
 
 ## AI integration
 
-Use the controller's **Connect AI / MCP** button to get the local EXE path and
-`--env` arguments. The bridge uses stdio on your owner PC, not an anonymous public
+Use the controller's **Connect AI / MCP** button to get the same controller EXE path and
+`--mcp --env` arguments. The bridge uses stdio on your owner PC, not an anonymous public
 MCP endpoint. Configure your AI client using its own MCP configuration format.
 
 Require user confirmation for destructive tools. Treat remote files and command
@@ -198,6 +195,17 @@ cargo test --locked
 Build your relay locally with `docker build -t kintlercontrol:dev .` or use the
 published [GHCR package](https://github.com/vnkdevelop/kintlercontrol/pkgs/container/kintlercontrol).
 Development Compose uses the additional `docker-compose.dev.yml` override.
+
+## One-file operation and safe deployment
+
+Use the Desktop shortcut button, or `KintlerController.exe --create-shortcut`, to create a native Windows shortcut.
+The active protected profile is discovered from user data, independent of the executable's location.
+The same EXE also supports `--setup`, `--mcp`, and `--deploy` modes.
+
+The generic deployment script is `scripts/deploy_remote.py`; copy `deploy/.env.example` to an ignored folder as `.env`.
+Run `KintlerController.exe --deploy --env PATH --dry-run` first, then deploy the dedicated Compose project.
+No real SSH target, key, owner registration or configured executable is in the public repository.
+See [single-EXE and deployment details](docs/SINGLE_EXE.md).
 
 ## Project layout
 

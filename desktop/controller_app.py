@@ -58,6 +58,9 @@ class ControllerApp:
         ttk.Button(header, text="Setup / Свой сервер", command=self.open_setup).pack(
             side="right", padx=8
         )
+        ttk.Button(header, text="Desktop shortcut / Ярлык", command=self.shortcut).pack(
+            side="right"
+        )
         ttk.Label(outer, textvariable=self.status, style="Status.TLabel").pack(
             anchor="w", pady=(5, 14)
         )
@@ -186,13 +189,21 @@ class ControllerApp:
 
     def open_setup(self) -> None:
         if getattr(sys, "frozen", False):
-            executable = Path(sys.executable).parent / "KintlerSetup.exe"
-            if not executable.is_file():
-                messagebox.showerror("Setup", "Keep KintlerSetup.exe next to the controller.")
-                return
-            subprocess.Popen([str(executable)])
+            subprocess.Popen([sys.executable, "--setup"])
         else:
             subprocess.Popen([sys.executable, "-m", "desktop.setup_app"])
+
+    def shortcut(self) -> None:
+        if not getattr(sys, "frozen", False):
+            messagebox.showinfo("Shortcut", "Use the packaged controller executable.")
+            return
+        from desktop.shortcut import create_shortcut
+
+        try:
+            destination = create_shortcut(Path(sys.executable))
+            messagebox.showinfo("Shortcut", f"Created: {destination}")
+        except (OSError, ValueError, RuntimeError) as error:
+            messagebox.showerror("Shortcut", str(error))
 
     def import_env(self) -> None:
         selected = filedialog.askopenfilename(
@@ -587,13 +598,17 @@ class ControllerApp:
             )
             return
         executable = (
-            Path(sys.executable).parent / "KintlerMCP.exe"
+            Path(sys.executable)
             if getattr(sys, "frozen", False)
             else Path(__file__).resolve().parents[1] / ".venv/Scripts/kintler-mcp.exe"
         )
         config = {
             "mcpServers": {
-                "kintler": {"command": str(executable), "args": ["--env", str(self.path)]}
+                "kintler": {
+                    "command": str(executable),
+                    "args": (["--mcp"] if getattr(sys, "frozen", False) else [])
+                    + ["--env", str(self.path)],
+                }
             }
         }
         window = tk.Toplevel(self.root)
@@ -601,7 +616,7 @@ class ControllerApp:
         window.geometry("760x390")
         ttk.Label(
             window,
-            text="Добавьте этот блок в MCP-настройки вашего AI-клиента.\nКлюч не включён в JSON. KintlerMCP.exe должен лежать рядом с контроллером.",
+            text="Добавьте этот блок в MCP-настройки вашего AI-клиента.\nКлюч не включён в JSON. MCP работает внутри этого же EXE.",
             padding=15,
         ).pack(anchor="w")
         text = tk.Text(window, font=("Consolas", 10), height=10)
@@ -655,12 +670,47 @@ async def check(path: Path, node: str, result: Path) -> None:
 
 
 def main() -> None:
+    if "--mcp" in sys.argv:
+        sys.argv.remove("--mcp")
+        from desktop.mcp_entry import main as mcp_main
+        from desktop.stdio import restored_stdio
+
+        with restored_stdio():
+            mcp_main()
+        return
+    if "--setup" in sys.argv:
+        sys.argv.remove("--setup")
+        from desktop.setup_app import main as setup_main
+
+        setup_main()
+        return
+    if "--deploy" in sys.argv:
+        sys.argv.remove("--deploy")
+        from desktop.stdio import restored_stdio
+        from scripts.deploy_remote import main as deploy_main
+
+        with restored_stdio():
+            deploy_main()
+        return
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=Path)
     parser.add_argument("--self-test", type=Path)
     parser.add_argument("--check", type=Path)
     parser.add_argument("--node")
+    parser.add_argument("--create-shortcut", action="store_true")
+    parser.add_argument("--shortcut-destination", type=Path)
+    parser.add_argument("--activate-profile", type=Path)
     args = parser.parse_args()
+    if args.activate_profile:
+        from desktop.settings import activate_profile
+
+        activate_profile(args.activate_profile)
+        return
+    if args.create_shortcut:
+        from desktop.shortcut import create_shortcut
+
+        create_shortcut(Path(sys.executable), args.shortcut_destination)
+        return
     if args.check:
         if not args.env or not args.node:
             raise ValueError("--check requires --env and --node")

@@ -105,7 +105,7 @@ class Service:
                     await socket.close(code=1008, message=b"Session expired")
 
     async def health(self, request: web.Request) -> web.Response:
-        return web.json_response({"status": "ok", "version": "1.2.0"})
+        return web.json_response({"status": "ok", "version": "1.3.0"})
 
     async def challenge(self, request: web.Request) -> web.Response:
         return web.json_response(self.auth.challenge(self.peer(request)))

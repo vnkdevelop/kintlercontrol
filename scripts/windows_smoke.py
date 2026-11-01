@@ -80,13 +80,14 @@ async def run(root: Path, temporary: Path) -> None:
         for role, name in {
             "agent": "KintlerAgent.exe",
             "controller": "KintlerController.exe",
-            "mcp": "KintlerMCP.exe",
-            "setup": "KintlerSetup.exe",
+            "mcp": "KintlerController.exe",
+            "setup": "KintlerController.exe",
         }.items()
     }
     for role, executable in executables.items():
         result = temporary / (role + "-startup.json")
-        process = await start(executable, "--self-test", str(result))
+        prefix = ["--mcp"] if role == "mcp" else ["--setup"] if role == "setup" else []
+        process = await start(executable, *prefix, "--self-test", str(result))
         try:
             await asyncio.wait_for(process.wait(), 60)
             assert process.returncode == 0 and json.loads(result.read_text())["ok"], (
@@ -113,6 +114,34 @@ async def run(root: Path, temporary: Path) -> None:
             finally:
                 await terminate(window)
     node = node_id()
+    relocated = temporary / "relocated"
+    relocated.mkdir()
+    import shutil
+
+    shutil.copyfile(executables["controller"], relocated / "KintlerController.exe")
+    shortcut = temporary / "Controller.lnk"
+    link_process = await start(
+        relocated / "KintlerController.exe",
+        "--create-shortcut",
+        "--shortcut-destination",
+        str(shortcut),
+    )
+    await asyncio.wait_for(link_process.wait(), 60)
+    assert link_process.returncode == 0 and shortcut.is_file()
+    setup_output = temporary / "setup-output"
+    setup_process = await start(
+        relocated / "KintlerController.exe",
+        "--setup",
+        "--url",
+        "https://relay.example.com",
+        "--output",
+        str(setup_output),
+        "--owner-profile",
+        str(temporary / "setup-owner/.env"),
+    )
+    await asyncio.wait_for(setup_process.wait(), 60)
+    assert setup_process.returncode == 0 and (setup_output / "Agent/KintlerAgent.exe").is_file()
+    assert not (setup_output / "Agent/kintler-agent.json").exists()
     private = new_private_key()
     operator = Credential(
         "frozen_operator",
@@ -204,7 +233,7 @@ async def run(root: Path, temporary: Path) -> None:
                 finally:
                     await terminate(controller)
                 params = StdioServerParameters(
-                    command=str(executables["mcp"]), args=["--env", str(controller_env)]
+                    command=str(executables["mcp"]), args=["--mcp", "--env", str(controller_env)]
                 )
                 async with (
                     stdio_client(params) as (reader, writer),

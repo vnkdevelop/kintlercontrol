@@ -7,9 +7,11 @@ from pathlib import Path
 def assemble(directory: Path) -> None:
     windows = directory / "windows"
     clients = list(windows.rglob("*.exe"))
-    expected = {"KintlerAgent.exe", "KintlerController.exe", "KintlerMCP.exe", "KintlerSetup.exe"}
+    expected = {"KintlerAgent.exe", "KintlerController.exe"}
     if {path.name for path in clients} != expected:
-        raise ValueError("Release must contain exactly the four generic client executables")
+        raise ValueError(
+            "Release must contain exactly the two self-contained generic client executables"
+        )
     image = directory / "backend/kintlercontrol-image.tar"
     if not image.is_file():
         raise ValueError("Tested portable backend image is missing")

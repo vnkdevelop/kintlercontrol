@@ -19,7 +19,8 @@ def test_generic_kit_contains_only_public_owner_data(tmp_path: Path):
     owner = tmp_path / "owner/.env"
     result = create_deployment("https://relay.example.com", output, binaries, owner)
     assert Path(result["server_kit"]).is_file()
-    assert (output / "Agent/kintler-agent.json").read_text().find("relay.example.com") >= 0
+    assert not (output / "Agent/kintler-agent.json").exists()
+    assert b"relay.example.com" in (output / "Agent/KintlerAgent.exe").read_bytes()
     with zipfile.ZipFile(result["server_kit"]) as archive:
         assert "docker-compose.caddy.yml" in archive.namelist()
         credentials = json.loads(

@@ -1,5 +1,4 @@
 import ipaddress
-import json
 import re
 import shutil
 import sys
@@ -10,6 +9,8 @@ from urllib.parse import urlsplit
 
 from common.protocol import client_tls
 from deploy.bootstrap_backend import initialize
+from desktop.agent_bundle import personalize_agent
+from desktop.settings import activate_profile, owner_profile_for_origin
 from scripts.prepare_owner import prepare
 
 
@@ -57,7 +58,9 @@ def _create_deployment(
     output.mkdir(parents=True, exist_ok=True)
     server = output / "server"
     server.mkdir()
-    local = prepare(url, server / "owner-public.json", owner_profile)
+    local = prepare(
+        url, server / "owner-public.json", owner_profile or owner_profile_for_origin(url)
+    )
     initialize(server, server / "owner-public.json")
     root = resources()
     for name in ("docker-compose.yml", "docker-compose.tls.yml"):
@@ -78,16 +81,15 @@ def _create_deployment(
         shutil.copyfile(portable_image, server / "kintlercontrol-image.tar")
         from dotenv import set_key
 
-        set_key(str(server / ".env"), "KINTLER_IMAGE", "kintlercontrol:1.2.0")
+        set_key(str(server / ".env"), "KINTLER_IMAGE", "kintlercontrol:1.3.0")
         start = "docker load --input kintlercontrol-image.tar && " + start
     instructions = f"""# Your KintlerControl server\n\nRelay: {url}\n\n1. Point your DNS hostname to your server. Install Docker Engine + Compose.\n2. Extract this folder on the server (not inside a public web directory).\n3. Run: `{start}`\n4. Open your controller and start the generated Agent folder on the target PC.\n5. Approve each new connection. For an unknown key, enter the code shown by the agent.\n\nAutomatic mode requires TCP 80/443. Existing-proxy mode requires your own TLS reverse proxy.\nDo not delete Docker volumes when updating. Private client keys are NOT in this server kit.\n\n# Запуск сервера\n\nНастройте DNS, установите Docker с Compose, распакуйте папку на сервере и выполните указанную команду.\nВ автоматическом режиме HTTPS выпускается Caddy; нужны свободные TCP 80/443 и доступный домен.\nВ режиме существующего прокси настройте свой HTTPS reverse proxy.\nПриватные ключи клиентов остаются на их ПК. Каждое новое соединение требует подтверждения.\n"""
     (server / "START_HERE.md").write_text(instructions, encoding="utf-8")
     target = output / "Agent"
     target.mkdir()
-    shutil.copyfile(agent, target / agent.name)
-    (target / "kintler-agent.json").write_text(json.dumps({"url": url}, indent=2), encoding="utf-8")
+    personalize_agent(agent, target / agent.name, url)
     (target / "START_HERE.txt").write_text(
-        "Keep EXE and JSON together. Open KintlerAgent.exe; then approve the connection in your controller.\nДержите EXE и JSON вместе. Запустите Agent.exe и подтвердите запрос в контроллере.\n",
+        "Copy only KintlerAgent.exe. Its public endpoint is included; no JSON or installation is required. Approve each connection in your controller.\nПереносите только Agent.exe; JSON и установка не нужны. Подтверждайте каждое соединение в контроллере.\n",
         encoding="utf-8",
     )
     archive = output / "server-kit.zip"
@@ -125,4 +127,6 @@ def create_deployment(
         staging.rename(output)
     result["server_kit"] = str(output / "server-kit.zip")
     result["agent_folder"] = str(output / "Agent")
+    if owner_profile is None:
+        activate_profile(Path(result["owner_profile"]))
     return result

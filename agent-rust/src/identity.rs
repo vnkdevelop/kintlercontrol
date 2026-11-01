@@ -4,7 +4,13 @@ use ed25519_dalek::{Signer, SigningKey};
 use rand::RngCore;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, fs, io::Write, path::PathBuf, ptr};
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::{Read, Seek, SeekFrom, Write},
+    path::PathBuf,
+    ptr,
+};
 use windows_sys::Win32::{
     Foundation::LocalFree,
     Security::Cryptography::{
@@ -14,28 +20,28 @@ use windows_sys::Win32::{
 use winreg::{RegKey, enums::*};
 
 pub fn configured_origin() -> Result<Option<String>> {
-    let file = std::env::current_exe()?
-        .parent()
-        .ok_or_else(|| anyhow!("Executable directory unavailable"))?
-        .join("kintler-agent.json");
-    if !file.exists() {
+    origin_from_reader(&mut fs::File::open(std::env::current_exe()?)?)
+}
+
+fn origin_from_reader(reader: &mut (impl Read + Seek)) -> Result<Option<String>> {
+    let total = reader.seek(SeekFrom::End(0))?;
+    if total < 12 {
         return Ok(None);
     }
-    if fs::metadata(&file)?.len() > 4096 {
-        bail!("Agent configuration is too large");
+    reader.seek(SeekFrom::End(-12))?;
+    let mut footer = [0u8; 12];
+    reader.read_exact(&mut footer)?;
+    if &footer[4..] != b"KCAGENT1" {
+        return Ok(None);
     }
-    let values: Value = serde_json::from_slice(&fs::read(file)?)?;
-    if values
-        .as_object()
-        .is_none_or(|v| v.len() != 1 || !v.contains_key("url"))
-    {
-        bail!("Agent configuration must contain only the public server URL");
+    let size = u32::from_le_bytes(footer[..4].try_into()?) as u64;
+    if size == 0 || size > 4096 || total < size + 12 {
+        bail!("Invalid public endpoint data in executable");
     }
-    let url = values["url"]
-        .as_str()
-        .ok_or_else(|| anyhow!("Missing server URL"))?
-        .trim_end_matches('/')
-        .to_string();
+    reader.seek(SeekFrom::Start(total - size - 12))?;
+    let mut data = vec![0; size as usize];
+    reader.read_exact(&mut data)?;
+    let url = String::from_utf8(data)?.trim_end_matches('/').to_string();
     let parsed: tokio_tungstenite::tungstenite::http::Uri = url.parse()?;
     if parsed.scheme_str() != Some("https")
         || parsed.host().is_none()
@@ -141,7 +147,7 @@ impl Config {
             BTreeMap::new()
         };
         if !values.contains_key("KINTLER_URL") {
-            let origin = configured_origin()?.ok_or_else(|| anyhow!("Run KintlerSetup.exe first, then copy the generated Agent folder (EXE + kintler-agent.json) to this PC"))?;
+            let origin = configured_origin()?.ok_or_else(|| anyhow!("Use the controller's Setup mode to create a configured Agent.exe; no separate JSON or installation is required"))?;
             values.insert("KINTLER_URL".into(), origin);
         }
         let raw = if let Some(value) = values.get("KINTLER_AGENT_PRIVATE_KEY") {
@@ -247,5 +253,22 @@ mod tests {
         let id = node_id().unwrap();
         assert_eq!(id.len(), 21);
         assert!(id.starts_with("node_"));
+    }
+    #[test]
+    fn endpoint_in_executable_only() {
+        let url = b"https://relay.example.com:9443";
+        let mut bytes = b"generic executable bytes".to_vec();
+        bytes.extend_from_slice(url);
+        bytes.extend_from_slice(&(url.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(b"KCAGENT1");
+        assert_eq!(
+            origin_from_reader(&mut std::io::Cursor::new(bytes)).unwrap(),
+            Some(String::from_utf8(url.to_vec()).unwrap())
+        );
+        assert!(
+            origin_from_reader(&mut std::io::Cursor::new(b"no endpoint".to_vec()))
+                .unwrap()
+                .is_none()
+        );
     }
 }

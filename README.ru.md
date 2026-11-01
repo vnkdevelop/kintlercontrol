@@ -30,9 +30,7 @@ KintlerControl связывает ваши Windows-ПК через **ваш со
 | Компонент | Назначение |
 |---|---|
 | `KintlerAgent.exe` | Нативный Rust/Win32 агент, без установки Python/WebView |
-| `KintlerController.exe` | Устройства, запросы, команды, файлы и инструменты |
-| `KintlerSetup.exe` | Мастер создания своего комплекта для сервера |
-| `KintlerMCP.exe` | Локальный stdio-мост для MCP-совместимых AI-клиентов |
+| `KintlerController.exe` | Самодостаточное приложение: устройства, запросы, инструменты, мастер, MCP и деплой |
 | Docker relay | Аутентификация, маршрутизация, реестр и аудит |
 
 ### Инструменты
@@ -58,9 +56,9 @@ KintlerControl связывает ваши Windows-ПК через **ваш со
 ### 2. Скачайте комплект
 
 Скачайте **`KintlerControl-Windows.zip`** из [Releases](https://github.com/vnkdevelop/kintlercontrol/releases/latest),
-распакуйте на управляющем ПК и держите четыре EXE вместе.
+распакуйте на управляющем ПК. Контроллер переносится одним EXE и может лежать где угодно.
 
-Откройте **`KintlerSetup.exe`**, введите свой HTTPS-адрес, выберите пустой каталог
+Откройте **`KintlerController.exe`**, нажмите **Setup / Свой сервер**, введите свой HTTPS-адрес, выберите пустой каталог
 и режим **Automatic HTTPS / Автоматический HTTPS**.
 
 Мастер создаст:
@@ -70,8 +68,7 @@ KintlerControl связывает ваши Windows-ПК через **ваш со
 ├── server-kit.zip       # этот архив отправить на сервер
 ├── server/              # Compose, публичная регистрация и инструкция
 └── Agent/
-    ├── KintlerAgent.exe
-    └── kintler-agent.json
+    └── KintlerAgent.exe  # настроенный один EXE, без JSON
 ```
 
 Приватный ключ владельца останется на этом ПК под Windows DPAPI.
@@ -100,7 +97,7 @@ Caddy сам получает и продлевает HTTPS-сертификат
 ### 4. Подключите ПК
 
 Откройте **`KintlerController.exe`** у владельца. Перенесите сгенерированную
-**папку Agent** на целевой ПК — EXE и JSON должны оставаться вместе — и запустите агент.
+**KintlerAgent.exe** в любое место на целевом ПК и запустите агент. JSON, CMD и вспомогательные EXE не нужны.
 
 Во вкладке **Запросы** контроллера выберите устройство. Для нового или
 изменённого ключа введите 8-значный код из окна нужного агента и разрешите соединение.
@@ -164,7 +161,7 @@ Shell неинтерактивный: нет PTY, RDP, управления мы
 
 ## AI / MCP
 
-Кнопка **Connect AI / MCP** контроллера показывает путь к EXE и аргументы `--env`.
+Кнопка **Connect AI / MCP** контроллера показывает путь к этому же EXE и аргументы `--mcp --env`.
 Используйте формат MCP-настроек вашего клиента. Мост запускается локально по stdio,
 а не как анонимный публичный endpoint.
 
@@ -190,6 +187,17 @@ uv run --no-sync python -m scripts.windows_smoke
 Проверки из `agent-rust/`: `cargo fmt --check`, `cargo clippy --locked -- -D warnings`,
 `cargo test --locked`. Backend можно собрать `docker build -t kintlercontrol:dev .`;
 для Compose-разработки используется дополнительный `docker-compose.dev.yml`.
+
+## Один EXE, ярлык и деплой
+
+Кнопка ярлыка или `KintlerController.exe --create-shortcut` создаёт нативный Windows-ярлык.
+Активный защищённый профиль хранится в user data и не зависит от расположения EXE.
+Мастер, MCP и CLI деплоя находятся в режимах этого же приложения.
+
+Скрипт деплоя: `scripts/deploy_remote.py`. Шаблон `deploy/.env.example` копируется в игнорируемую папку как `.env`.
+Сначала `KintlerController.exe --deploy --env PATH --dry-run`, затем обновление только своего Compose-проекта.
+Приватные SSH-данные и настроенные персональные EXE не публикуются.
+Подробнее: [docs/SINGLE_EXE.md](docs/SINGLE_EXE.md).
 
 ## Структура
 

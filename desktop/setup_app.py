@@ -77,7 +77,7 @@ class SetupApp:
     def generate(self) -> None:
         self.create.configure(state="disabled")
         binaries = (
-            Path(sys.executable).parent
+            Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "embedded"
             if getattr(sys, "frozen", False)
             else Path(__file__).resolve().parents[1] / "dist/windows"
         )
@@ -131,6 +131,8 @@ def main() -> None:
         args.self_test.write_text(json.dumps({"ok": True, "role": "setup"}), encoding="utf-8")
         return
     if args.url:
+        if not args.binaries and getattr(sys, "frozen", False):
+            args.binaries = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "embedded"
         if not args.output or not args.binaries:
             parser.error("--url requires --output and --binaries")
         print(

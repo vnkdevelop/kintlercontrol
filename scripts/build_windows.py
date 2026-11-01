@@ -44,7 +44,7 @@ def make_icon(path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--only", choices=("controller", "agent", "mcp", "setup"))
+    parser.add_argument("--only", choices=("controller", "agent"))
     parser.add_argument("--package-only", action="store_true")
     selection = parser.parse_args()
     if os.name != "nt":
@@ -57,18 +57,14 @@ def main() -> None:
     icon = work / "kintler.ico"
     make_icon(icon)
     entries = [
-        ("KintlerController", "controller_app.py", False),
         ("KintlerAgent", "agent_app.py", False),
-        ("KintlerMCP", "mcp_entry.py", True),
-        ("KintlerSetup", "setup_app.py", False),
+        ("KintlerController", "controller_app.py", False),
     ]
     try:
         for name, entry, console in entries:
             selected = {
                 "controller": "KintlerController",
                 "agent": "KintlerAgent",
-                "mcp": "KintlerMCP",
-                "setup": "KintlerSetup",
             }
             if selection.package_only or (selection.only and selected[selection.only] != name):
                 continue
@@ -119,9 +115,15 @@ def main() -> None:
                 "mss",
                 "--console" if console else "--windowed",
             ]
-            if console:
-                args += ["--collect-data", "mcp", "--copy-metadata", "mcp"]
-            if name == "KintlerSetup":
+            if name == "KintlerController":
+                args += [
+                    "--collect-data",
+                    "mcp",
+                    "--copy-metadata",
+                    "mcp",
+                    "--add-data",
+                    f"{output / 'KintlerAgent.exe'};embedded",
+                ]
                 for item in (
                     "docker-compose.yml",
                     "docker-compose.tls.yml",
@@ -146,7 +148,7 @@ def main() -> None:
         for label, names in [
             (
                 "Kintler-Controller-Windows",
-                ["KintlerController.exe", "KintlerMCP.exe", "KintlerSetup.exe", "KintlerAgent.exe"],
+                ["KintlerController.exe", "KintlerAgent.exe"],
             ),
             ("Kintler-Agent-Windows", ["KintlerAgent.exe"]),
         ]:
