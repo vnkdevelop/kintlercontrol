@@ -1,4 +1,5 @@
 #![cfg_attr(not(test), windows_subsystem = "windows")]
+mod desktop;
 mod identity;
 mod network;
 mod terminal;
@@ -26,6 +27,9 @@ fn main() {
 
 fn start() -> anyhow::Result<()> {
     let args = std::env::args().collect::<Vec<_>>();
+    if args.iter().any(|v| v == "--desktop-worker") {
+        return desktop::worker();
+    }
     let value = |flag: &str| {
         args.iter()
             .position(|v| v == flag)

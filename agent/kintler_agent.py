@@ -17,7 +17,7 @@ import psutil
 from dotenv import load_dotenv
 
 from agent.fingerprint import node_id
-from agent.modules import admin_tools, executor, monitor, processes
+from agent.modules import admin_tools, desktop, executor, monitor, processes
 from agent.modules.fs_transfer import Transfers, sha256_file
 from common.identity import signed_auth, unlock
 from common.protocol import (
@@ -47,6 +47,7 @@ class AgentSettings:
     allow_local_http: bool = False
     ca_file: str | None = None
     private_key: bytes = field(default=b"", repr=False)
+    native_agent: Path | None = None
 
     @classmethod
     def from_env(cls, directory: Path | None = None) -> "AgentSettings":
@@ -79,6 +80,9 @@ class AgentSettings:
             os.environ.get("KINTLER_ALLOW_LOCAL_HTTP") == "1",
             os.environ.get("KINTLER_CA_FILE") or None,
             private,
+            Path(os.environ["KINTLER_NATIVE_AGENT"])
+            if os.environ.get("KINTLER_NATIVE_AGENT")
+            else None,
         )
 
 
@@ -93,6 +97,7 @@ class Agent:
         self.seen: dict[str, float] = {}
         self.send_lock = asyncio.Lock()
         self.file_lock = asyncio.Lock()
+        self.desktop_lock = asyncio.Lock()
         self.heartbeat_sent = 0.0
         self.ping_ms: float | None = None
 
@@ -112,6 +117,13 @@ class Agent:
         root = self.transfers.root
         if tool == "shell":
             return await executor.execute(args, root, emit, timeout)
+        if tool in {"open", "desktop"}:
+            async with self.desktop_lock:
+                if tool == "open":
+                    return await asyncio.to_thread(desktop.open_application, args, root)
+                return await desktop.operate(
+                    args, root, session_id, timeout, self.settings.native_agent
+                )
         if tool == "sysinfo":
             return await asyncio.to_thread(monitor.sysinfo)
         if tool == "ps":

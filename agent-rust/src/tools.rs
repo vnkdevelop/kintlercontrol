@@ -14,7 +14,7 @@ use std::{
 };
 use sysinfo::{Disks, Networks, Pid, System};
 use tokio::{
-    io::{AsyncRead, AsyncReadExt},
+    io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
     process::Command,
     sync::mpsc,
 };
@@ -33,7 +33,7 @@ pub fn admin() -> bool {
 pub fn metadata(config: &Config, system: &mut System) -> Value {
     system.refresh_cpu_usage();
     system.refresh_memory();
-    json!({"name":config.name,"platform":"Windows","user":std::env::var("USERNAME").unwrap_or_default(),"admin":admin(),"version":"1.5.2-rust","tools":config.tools,"telemetry":{"cpu_percent":system.global_cpu_usage(),"ram_total":system.total_memory(),"ram_percent":100.0*(system.used_memory() as f64)/(system.total_memory().max(1) as f64),"uptime":System::uptime()}})
+    json!({"name":config.name,"platform":"Windows","user":std::env::var("USERNAME").unwrap_or_default(),"admin":admin(),"version":concat!(env!("CARGO_PKG_VERSION"),"-rust"),"tools":config.tools,"telemetry":{"cpu_percent":system.global_cpu_usage(),"ram_total":system.total_memory(),"ram_percent":100.0*(system.used_memory() as f64)/(system.total_memory().max(1) as f64),"uptime":System::uptime()}})
 }
 
 fn process_created(pid: u32) -> Option<f64> {
@@ -165,6 +165,7 @@ unsafe extern "system" fn monitor_callback(
     1
 }
 fn screenshot(args: &Value, root: &Path) -> Result<Value> {
+    agent_desktop_windows::ensure_hosted_library_mta_and_dpi()?;
     let index = args["monitor"].as_u64().unwrap_or(1) as usize;
     let mut monitors = Vec::new();
     unsafe {
@@ -260,7 +261,9 @@ fn screenshot(args: &Value, root: &Path) -> Result<Value> {
     encoder.set_color(png::ColorType::Rgb);
     encoder.set_depth(png::BitDepth::Eight);
     encoder.write_header()?.write_image_data(&rgb)?;
-    Ok(json!({"ok":true,"path":name,"size":fs::metadata(&path)?.len(),"sha256":digest(&path)?}))
+    Ok(
+        json!({"ok":true,"path":name,"size":fs::metadata(&path)?.len(),"sha256":digest(&path)?,"width":width,"height":height,"left":rect.left,"top":rect.top}),
+    )
 }
 
 struct Job(usize);
@@ -384,6 +387,102 @@ fn text(args: &Value, key: &str) -> Result<String> {
     Ok(value.to_string())
 }
 
+static DESKTOP_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+async fn desktop_process(
+    tool: &str,
+    args: Value,
+    config: &Config,
+    envelope: &Value,
+    cancel: CancellationToken,
+) -> Result<Value> {
+    let _permit = tokio::select! {
+        _ = cancel.cancelled() => bail!("Command cancelled"),
+        permit = DESKTOP_LOCK.lock() => permit,
+    };
+    let (action, params, headed) = if tool == "open" {
+        if args
+            .as_object()
+            .is_none_or(|v| v.keys().any(|k| k != "app" && k != "arguments"))
+        {
+            bail!("Invalid open arguments");
+        }
+        ("launch".to_string(), args, true)
+    } else {
+        if args.as_object().is_none_or(|v| {
+            v.keys()
+                .any(|k| !["action", "params", "headed"].contains(&k.as_str()))
+        }) {
+            bail!("Invalid desktop arguments");
+        }
+        let action = text(&args, "action")?;
+        if action == "launch" {
+            bail!("Use open with open permission to launch applications");
+        }
+        let headed = args
+            .get("headed")
+            .map_or(Some(false), Value::as_bool)
+            .ok_or_else(|| anyhow!("Invalid headed flag"))?;
+        (
+            action,
+            args.get("params").cloned().unwrap_or_else(|| json!({})),
+            headed,
+        )
+    };
+    let session = envelope["session_id"]
+        .as_str()
+        .ok_or_else(|| anyhow!("Missing session"))?;
+    let state = PathBuf::from(
+        std::env::var_os("LOCALAPPDATA")
+            .ok_or_else(|| anyhow!("Interactive user profile is unavailable"))?,
+    )
+    .join("KintlerControl/desktop")
+    .join(&config.node);
+    let timeout = envelope["timeout_ms"].as_u64().unwrap_or(60000);
+    let input = serde_json::to_vec(
+        &json!({"action":action,"params":params,"headed":headed,"session":session,"timeout_ms":timeout}),
+    )?;
+    let mut child = Command::new(std::env::current_exe()?)
+        .arg("--desktop-worker")
+        .env("AGENT_DESKTOP_HOME", state)
+        .env_remove("AGENT_DESKTOP_SESSION")
+        .env_remove("AGENT_DESKTOP_AGENT_ID")
+        .current_dir(&config.root)
+        .creation_flags(0x08000000)
+        .kill_on_drop(true)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+    let contained = if tool == "open" {
+        None
+    } else {
+        Some(job(child
+            .id()
+            .ok_or_else(|| anyhow!("Worker PID unavailable"))?)?)
+    };
+    let result = tokio::select! {
+        _ = cancel.cancelled() => Err(anyhow!("Command cancelled; inspect application state before retry")),
+        result = async {
+            let mut stdin=child.stdin.take().ok_or_else(||anyhow!("Worker input unavailable"))?;
+            stdin.write_all(&input).await?;
+            drop(stdin);
+            let mut output=Vec::new();
+            child.stdout.take().ok_or_else(||anyhow!("Worker output unavailable"))?.take(crate::desktop::MAX_RESULT as u64+1).read_to_end(&mut output).await?;
+            if output.len()>crate::desktop::MAX_RESULT {bail!("Desktop output limit reached; inspect state before retry");}
+            let status=child.wait().await?;
+            if !status.success() {bail!("Desktop worker failed; inspect state before retry");}
+            let value:Value=serde_json::from_slice(&output)?;
+            if !value.is_object() || !value["ok"].is_boolean() {bail!("Invalid desktop response");}
+            Ok(value)
+        } => result,
+    };
+    drop(contained);
+    let _ = child.kill().await;
+    let _ = child.wait().await;
+    result
+}
+
 pub async fn execute(
     tool: String,
     args: Value,
@@ -395,6 +494,9 @@ pub async fn execute(
 ) -> Result<Value> {
     if !config.tools.contains(&tool) {
         bail!("Tool disabled by device owner");
+    }
+    if tool == "open" || tool == "desktop" {
+        return desktop_process(&tool, args, &config, &envelope, cancel).await;
     }
     if tool == "shell" {
         let shell = args["shell"].as_str().unwrap_or("cmd");

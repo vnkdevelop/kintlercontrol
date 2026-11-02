@@ -28,6 +28,16 @@ COMMANDS = (
         "shell", "Команда на выбранном ПК", "/shell команда | /shell --cwd папка -- команда"
     ),
     CommandSpec("message", "Показать окно с вашим текстом на Windows-ПК", "/message ваш текст"),
+    CommandSpec(
+        "open",
+        "Открыть приложение на выбранном ПК",
+        '/open notepad.exe | /open "путь к приложению.exe" [аргументы]',
+    ),
+    CommandSpec(
+        "desktop",
+        "Управление интерфейсом, мышью и клавиатурой",
+        '/desktop help | /desktop snapshot {"app":"Notepad"}',
+    ),
     CommandSpec("kill", "Завершить конкретный процесс", "/kill PID время_создания [--force]"),
     CommandSpec(
         "upload",
@@ -116,6 +126,8 @@ def parse_command(value: str) -> Invocation:
         if not value.isascii() or len(value) != 6:
             raise ValueError("Введите ровно 6 цифр из Agent или откройте /approve.")
         return Invocation("approve", {"target": "", "code": value}, value)
+    if value.lower().startswith("open "):
+        value = "/" + value
     if not value.startswith("/"):
         return Invocation(
             "shell", {"command": value, "shell": None, "cwd": ".", "timeout": 120}, value
@@ -130,6 +142,25 @@ def parse_command(value: str) -> Invocation:
         if not tail.strip() or "\0" in tail or len(tail) > 2000:
             raise ValueError("Укажите текст сообщения: /message ваш текст (до 2000 символов).")
         return Invocation(name, {"text": tail}, value)
+    if name == "open":
+        tokens = words(tail)
+        if not tokens or not tokens[0].strip():
+            raise ValueError(SPECS[name].usage)
+        return Invocation(name, {"app": tokens[0], "arguments": tokens[1:]}, value)
+    if name == "desktop":
+        action, _, payload = tail.strip().partition(" ")
+        if not action:
+            raise ValueError(SPECS[name].usage)
+        try:
+            data = json.loads(payload) if payload.strip() else {}
+        except json.JSONDecodeError as error:
+            raise ValueError("Параметры /desktop должны быть JSON-объектом") from error
+        if not isinstance(data, dict):
+            raise ValueError("Параметры /desktop должны быть JSON-объектом")
+        headed = data.pop("headed", False)
+        if not isinstance(headed, bool):
+            raise ValueError("headed должен быть true или false")
+        return Invocation(name, {"action": action, "params": data, "headed": headed}, value)
     parser = CommandParser(prog=f"/{name}", add_help=False)
     if name in {"help", "use", "profile", "approve", "deny"}:
         parser.add_argument(

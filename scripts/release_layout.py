@@ -6,6 +6,7 @@ SKILL_FILES = (
     "SKILL.md",
     "references/mcp-clients.md",
     "references/tools.md",
+    "references/desktop.md",
     "references/troubleshooting.md",
     "scripts/install-controller.cmd",
 )
@@ -45,6 +46,8 @@ def bundle_sources(root: Path, directory: Path) -> dict[str, Path]:
     files = {
         "START_HERE.md": root / "docs/START_HERE.md",
         "LICENSE": root / "LICENSE",
+        "THIRD_PARTY_NOTICES.md": root / "docs/THIRD_PARTY_NOTICES.md",
+        "licenses/agent-desktop.txt": root / "docs/AGENT_DESKTOP_LICENSE.txt",
         "clients/windows/SHA256.json": checksums[0],
         "server/kintlercontrol-image.tar": directory / "backend/kintlercontrol-image.tar",
         "server/kintlercontrol-image.tar.sha256": directory

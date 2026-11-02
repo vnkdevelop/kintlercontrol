@@ -1,4 +1,14 @@
-# KintlerControl 1.5.2
+# KintlerControl 1.6.0
+
+- `/open` in Controller and `open` over MCP launch applications on the explicitly selected device. Literal argument arrays do not run through a shell.
+- New `desktop` tool embeds the pinned Apache-2.0 agent-desktop core/Windows libraries in the native Rust Agent. The managed PC still receives just one EXE, without Node.js, Python, a helper EXE or sidecar DLL.
+- AI chooses the observe-act-verify loop for a user's multi-step GUI task. Compact accessibility snapshots/qualified refs, physical mouse/keyboard, drag, waiting and bounded stop-on-error batches are available. One on-demand help action replaces dozens of permanent MCP schemas.
+- MCP screenshot without a destination returns an image plus coordinate scaling/monitor origin. Explicit destinations retain the previous PNG download behavior. Temporary Controller images are removed.
+- New tools use the existing relay ACL, local tool policy, fresh human pairing and audit. Screenshot/download stay separately permissioned. Desktop input is serialized; self-worker processes are bounded/cancellable and use session-scoped private ref state.
+- Existing deployments must explicitly add open/desktop to the owner and Agent tool allowlists if restricted. No automatic access-policy migration or deployment is performed. Native Windows is the supported embedded GUI target; source Python hosts can use their configured native Agent worker.
+- The universal bundle includes updated clients/backend/skill and agent-desktop license/attribution.
+
+## Preserved 1.5.2 functionality
 
 Client and AI-integration release: the Windows Controller, MCP surface and portable skill changed; relay logic is the same as 1.5.1.
 

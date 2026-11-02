@@ -20,6 +20,8 @@ async def test_all_tools_registered_with_schemas():
         "session_status",
         "shell",
         "message",
+        "open",
+        "desktop",
         "sysinfo",
         "ps",
         "kill",
@@ -56,7 +58,7 @@ async def test_real_mcp_stdio_login_and_tool_call(environment: Environment, tmp_
     async with stdio_client(params) as (reader, writer), ClientSession(reader, writer) as session:
         await session.initialize()
         tools = await session.list_tools()
-        assert len(tools.tools) == 14
+        assert len(tools.tools) == 16
         status = await session.call_tool(
             "session_status", {"node": "node_a", "required_tools": ["shell"]}
         )

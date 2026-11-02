@@ -13,6 +13,8 @@ MAX_MESSAGE = 256 * 1024
 TOOLS = frozenset(
     {
         "shell",
+        "open",
+        "desktop",
         "sysinfo",
         "ps",
         "kill",

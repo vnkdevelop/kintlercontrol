@@ -133,7 +133,7 @@ pub async fn connection(
                 let seconds=message["timeout"].as_f64().filter(|v|v.is_finite()&&*v>=1.0&&*v<=120.0).ok_or_else(||anyhow!("Invalid timeout"))?;
                 let tool=message["tool"].as_str().ok_or_else(||anyhow!("Invalid tool"))?.to_string();let args=message["args"].clone();if !args.is_object(){bail!("Tool args must be an object");}
                 event(&events,message["activity"].as_str().filter(|value|value.len()<=4096).unwrap_or(&tool).to_string());
-                let envelope=json!({"session_id":owner,"target_node_id":config.node,"command_id":id});let cancelled=stop.child_token();let cancel=cancelled.clone();let sender=sender.clone();let config=config.clone();let transfers=transfers.clone();
+                let envelope=json!({"session_id":owner,"target_node_id":config.node,"command_id":id,"timeout_ms":(seconds*1000.0) as u64});let cancelled=stop.child_token();let cancel=cancelled.clone();let sender=sender.clone();let config=config.clone();let transfers=transfers.clone();
                 let task=tokio::spawn(async move {let result=match tokio::time::timeout(Duration::from_secs_f64(seconds),tools::execute(tool,args,config,transfers,envelope.clone(),sender.clone(),cancel)).await {Ok(Ok(value))=>value,Ok(Err(error))=>json!({"ok":false,"error":error.to_string()}),Err(_)=>json!({"ok":false,"error":"Command deadline expired"})};let mut event=envelope;event["type"]=json!("result");event["result"]=result;let _=sender.send(event).await;});jobs.insert(id,(owner,cancelled,task));
             }
         }}Ok(())

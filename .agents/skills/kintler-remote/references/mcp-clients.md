@@ -102,7 +102,7 @@ cmd.exe /c claude mcp get kintler
 
 ## Общая проверка
 
-После регистрации требуются успешный MCP initialize, tools/list и реальный `session_status()` из этой среды; для старого Controller — `nodes()`/`capabilities()`. Новая сборка содержит 14 MCP-инструментов, старые — 13; разрешения host могут скрывать часть, не отменяй их ради полного списка. Размер capabilities.tools — права backend, не размер MCP-каталога. `Added`, сохранённый JSON/TOML, удачный --probe или статус enabled не доказывают доступность MCP агенту. Сохраняй DPAPI-профиль и ручной ввод нового Agent-кода в Controller.
+После регистрации требуются успешный MCP initialize, tools/list и реальный `session_status()` из этой среды; для старого Controller — `nodes()`/`capabilities()`. Версия 1.6.0 содержит 16 MCP-инструментов, 1.5.2 — 14, более старые — 13; разрешения host могут скрывать часть, не отменяй их ради полного списка. Размер capabilities.tools — права backend, не размер MCP-каталога. `Added`, сохранённый JSON/TOML, удачный --probe или статус enabled не доказывают доступность MCP агенту. Сохраняй DPAPI-профиль и ручной ввод нового Agent-кода в Controller.
 
 ## Проверенные источники
 

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import ctypes
 import json
 import os
@@ -7,13 +8,14 @@ import ssl
 import subprocess
 import sys
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 import psutil
 from aiohttp.test_utils import TestServer
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from mcp.types import TextContent
+from mcp.types import ImageContent, TextContent
 
 from agent.fingerprint import node_id
 from agent.modules.executor import terminate
@@ -206,6 +208,133 @@ def console_for_process(pid: int, close: bool = False) -> str:
             kernel.AttachConsole(0xFFFFFFFF)
 
 
+async def desktop_checks(
+    session: ClientSession, client: KintlerClient, node: str, temporary: Path
+) -> None:
+    title = "Kintler GUI fixture " + secrets.token_hex(6)
+    script = "\n".join(
+        [
+            "import ctypes, time",
+            "from ctypes import wintypes as w",
+            "u=ctypes.windll.user32",
+            "u.CreateWindowExW.restype=w.HWND",
+            "u.CreateWindowExW.argtypes=[w.DWORD,w.LPCWSTR,w.LPCWSTR,w.DWORD,ctypes.c_int,ctypes.c_int,ctypes.c_int,ctypes.c_int,w.HWND,w.HMENU,w.HINSTANCE,ctypes.c_void_p]",
+            f"h=u.CreateWindowExW(0,'STATIC',{title!r},0x10CF0000,100,100,500,250,None,None,None,None)",
+            "assert h",
+            "e=u.CreateWindowExW(0,'EDIT','fixture',0x50810080,20,30,400,40,h,None,None,None)",
+            "assert e",
+            "b=u.CreateWindowExW(0,'BUTTON','Fixture button',0x50000000,20,100,160,35,h,None,None,None)",
+            "assert b",
+            "u.IsWindow.argtypes=[w.HWND]",
+            "u.PeekMessageW.argtypes=[ctypes.POINTER(w.MSG),w.HWND,w.UINT,w.UINT,w.UINT]",
+            "m=w.MSG(); end=time.monotonic()+90",
+            "while u.IsWindow(h) and time.monotonic()<end:",
+            "    while u.PeekMessageW(ctypes.byref(m),None,0,0,1):",
+            "        u.TranslateMessage(ctypes.byref(m)); u.DispatchMessageW(ctypes.byref(m))",
+            "    time.sleep(0.01)",
+        ]
+    )
+
+    async def call(tool: str, **args: object) -> dict:
+        response = await session.call_tool(tool, {"node": node, **args})
+        assert not response.isError, response
+        text = next(item for item in response.content if isinstance(item, TextContent))
+        return json.loads(text.text)
+
+    opened = await call("open", app=sys.executable, arguments=["-c", script])
+    assert opened["ok"] and opened["data"]["accepted"], opened
+    pid = opened["data"]["pid"]
+    assert pid and pid != os.getpid()
+    fixture = psutil.Process(pid)
+    try:
+        assert (await call("desktop", action="help"))["ok"]
+        assert (await call("desktop", action="wait", params={"window": title}, timeout=20))["ok"]
+        windows = await call("desktop", action="list-windows")
+        matches = [window for window in windows["data"] if window["title"] == title]
+        assert len(matches) == 1, "The task-owned GUI fixture window was not uniquely found"
+        window_id = matches[0]["id"]
+        snapshot = await call(
+            "desktop", action="snapshot", params={"window_id": window_id, "include_bounds": True}
+        )
+        assert snapshot["ok"], snapshot
+
+        def elements(tree: dict) -> Iterator[dict]:
+            yield tree
+            for child in tree.get("children", []):
+                yield from elements(child)
+
+        fields = [
+            element
+            for element in elements(snapshot["data"]["tree"])
+            if element.get("role") == "textfield" and element.get("ref_id")
+        ]
+        assert len(fields) == 1, snapshot
+        ref = fields[0]["ref_id"]
+        value = "Kintler проверка & literal"
+        written = await call("desktop", action="set-value", params={"ref_id": ref, "value": value})
+        assert written["ok"], written
+        read = await call("desktop", action="get", params={"ref_id": ref, "property": "value"})
+        assert read["ok"] and read["data"]["value"] == value, read
+        buttons = [
+            element
+            for element in elements(snapshot["data"]["tree"])
+            if element.get("role") == "button"
+            and element.get("name") == "Fixture button"
+            and element.get("ref_id")
+        ]
+        assert len(buttons) == 1, snapshot
+        clicked = await call("desktop", action="click", params={"ref_id": buttons[0]["ref_id"]})
+        assert clicked["ok"], clicked
+        assert (await call("desktop", action="focus-window", params={"window_id": window_id}))["ok"]
+        bounds = await call("desktop", action="get", params={"ref_id": ref, "property": "bounds"})
+        assert bounds["ok"], bounds
+        rect = bounds["data"]["value"]
+        clicked = await call(
+            "desktop",
+            action="mouse-click",
+            params={"x": rect["x"] + rect["width"] / 2, "y": rect["y"] + rect["height"] / 2},
+            headed=True,
+        )
+        assert clicked["ok"], clicked
+        batch = await call(
+            "desktop",
+            action="batch",
+            params={
+                "steps": [
+                    {"action": "get", "params": {"ref_id": ref, "property": "value"}},
+                    {"action": "get", "params": {"ref_id": "@smissing:e1", "property": "value"}},
+                    {"action": "set-value", "params": {"ref_id": ref, "value": "must-not-run"}},
+                ]
+            },
+        )
+        assert not batch["ok"] and batch["data"]["completed"] == 2, batch
+        assert (await call("desktop", action="get", params={"ref_id": ref, "property": "value"}))[
+            "data"
+        ]["value"] == value
+        other_session = await client.call(
+            node, "desktop", {"action": "get", "params": {"ref_id": ref, "property": "value"}}
+        )
+        assert not other_session["ok"] and other_session["error"]["code"] == "SNAPSHOT_NOT_FOUND", (
+            other_session
+        )
+        blocked = await call("desktop", action="mouse-click", params={"x": 120, "y": 140})
+        assert not blocked["ok"] and blocked["error"]["code"] == "POLICY_DENIED", blocked
+        blocked = await call("desktop", action="launch", params={"app": "notepad.exe"})
+        assert not blocked["ok"], blocked
+        image = await session.call_tool("screenshot", {"node": node})
+        assert not image.isError and any(isinstance(item, ImageContent) for item in image.content)
+        print(
+            "PASS: embedded desktop over packaged MCP: open, snapshot/ref, Unicode set/get, headed click, batch stop-on-error, session isolation, physical-input policy, visible MCP image."
+        )
+    finally:
+        with contextlib.suppress(psutil.Error):
+            owned = [*fixture.children(recursive=True), fixture]
+            for child in reversed(owned):
+                with contextlib.suppress(psutil.Error):
+                    child.kill()
+            await asyncio.to_thread(psutil.wait_procs, owned, timeout=5)
+
+
 async def run(root: Path, temporary: Path) -> None:
     output = root / "dist/windows"
     executables = {
@@ -348,7 +477,13 @@ async def run(root: Path, temporary: Path) -> None:
                 "KINTLER_CA_FILE": str(temporary / "cert.pem"),
             },
         )
-        process = await start(executables["agent"], "--headless", "--env", str(agent_env))
+        process = await start(
+            executables["agent"],
+            "--headless",
+            "--env",
+            str(agent_env),
+            local_data=temporary / "user-data",
+        )
         try:
             async with KintlerClient(
                 ClientSettings(
@@ -403,14 +538,21 @@ async def run(root: Path, temporary: Path) -> None:
                     ClientSession(reader, writer) as session,
                 ):
                     await asyncio.wait_for(session.initialize(), 60)
-                    assert len((await session.list_tools()).tools) == 14
+                    assert len((await session.list_tools()).tools) == 16
                     mcp_result = await session.call_tool("sysinfo", {"node": node})
                     content = mcp_result.content[0]
                     assert isinstance(content, TextContent)
                     assert not mcp_result.isError and json.loads(content.text)["ok"]
+                    await desktop_checks(session, client, node, temporary)
                 assert app[SERVICE].registry.nodes[node].ready
                 await terminate(process)
-                repeated = await start(executables["agent"], "--headless", "--env", str(agent_env))
+                repeated = await start(
+                    executables["agent"],
+                    "--headless",
+                    "--env",
+                    str(agent_env),
+                    local_data=temporary / "user-data",
+                )
                 try:
                     async with asyncio.timeout(30):
                         while True:

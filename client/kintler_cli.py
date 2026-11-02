@@ -164,6 +164,16 @@ async def run(args: argparse.Namespace) -> None:
                     indent=2,
                 )
             )
+        elif args.action == "open":
+            print(
+                json.dumps(
+                    await client.call(
+                        args.node, "open", {"app": args.app, "arguments": args.arguments}
+                    ),
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
         elif args.action == "upload":
             print(
                 json.dumps(
@@ -194,6 +204,12 @@ def main() -> None:
     call.add_argument("tool")
     call.add_argument("--args", default="{}")
     call.add_argument("--timeout", type=float, default=120)
+    launch = commands.add_parser(
+        "open", help="Open an application on an explicitly selected device"
+    )
+    launch.add_argument("node")
+    launch.add_argument("app")
+    launch.add_argument("arguments", nargs=argparse.REMAINDER)
     for name in ("upload", "download"):
         transfer = commands.add_parser(name)
         transfer.add_argument("node")

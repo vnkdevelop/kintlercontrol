@@ -29,6 +29,10 @@ def describe_action(tool: str, args: dict, origin: str = "controller") -> str:
     operation = str(args.get("operation", ""))
     if tool == "shell":
         details = str(args.get("command", ""))
+    elif tool == "open":
+        details = "запуск приложения"
+    elif tool == "desktop":
+        details = str(args.get("action", ""))
     elif tool in {"upload", "download"}:
         details = " ".join(str(args.get(key, "")) for key in ("operation", "path") if args.get(key))
     elif tool == "registry":

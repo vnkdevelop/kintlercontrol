@@ -99,6 +99,8 @@ class Router:
         node = self.registry.nodes.get(node_id)
         if node is None or not node.ready or node.socket is None or node.socket.closed:
             raise ProtocolError("Node is offline")
+        if tool in {"open", "desktop"} and tool not in node.metadata.get("tools", []):
+            raise ProtocolError("Tool is disabled or this Agent requires an update")
         command = Command(
             "cmd_" + secrets.token_hex(16),
             session.id,

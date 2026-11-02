@@ -681,7 +681,7 @@ wheels = [
 
 [[package]]
 name = "kintlercontrol"
-version = "1.5.2"
+version = "1.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -693,6 +693,7 @@ dependencies = [
 [package.optional-dependencies]
 ai = [
     { name = "mcp" },
+    { name = "pillow" },
 ]
 desktop = [
     { name = "textual" },
@@ -723,6 +724,7 @@ requires-dist = [
     { name = "mcp", marker = "extra == 'ai'", specifier = ">=1.26,<2" },
     { name = "mss", marker = "extra == 'screen'", specifier = ">=10,<11" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15,<2" },
+    { name = "pillow", marker = "extra == 'ai'", specifier = ">=11,<13" },
     { name = "pillow", marker = "extra == 'dev'", specifier = ">=11,<13" },
     { name = "pillow", marker = "extra == 'windows'", specifier = ">=11,<13" },
     { name = "psutil", specifier = ">=6.1,<8" },

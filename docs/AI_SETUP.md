@@ -43,7 +43,7 @@ Local skill discovery and cloud account skills differ. Claude Desktop/Cowork or 
 1. Find already available Kintler tools; use the actual namespace or Code Mode catalog.
 2. Reuse the existing Controller. The full bundle has `clients/windows/`; a missing Controller can be bootstrapped by the skill's checksum-verified Windows script, without downloading the backend image.
 3. Use the host's native MCP manager/CLI and preserve every unrelated server and permission. `KintlerController.exe --mcp-config --host HOST` prints the correct connection entry; it never writes settings.
-4. Respect host trust prompts and verify initialize, the actual tool catalog and `session_status(node=DEVICE,required_tools=[TOOL])`. Older 13-tool Controller builds use `nodes()` / `capabilities()` instead; the new build has 14 tools.
+4. Respect host trust prompts and verify initialize, the actual tool catalog and `session_status(node=DEVICE,required_tools=[TOOL])`. Older 13-tool Controller builds use `nodes()` / `capabilities()` instead; version 1.6.0 has 16 tools, including open and desktop.
 5. Select an explicitly requested online device by its exact ID. Verify operator/device tool policy before each operation. Missing/ambiguous targets require clarification.
 
 Read only the matching section of `skills/kintler-remote/references/mcp-clients.md` for the host's schema. OpenCode uses `mcp.servers` and an executable array; Codex uses TOML; other hosts may use `mcpServers` or `servers`. These shapes are not interchangeable.

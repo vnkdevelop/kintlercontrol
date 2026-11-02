@@ -39,6 +39,8 @@ def client_for(app, admin=False, platform="Windows"):
 
 REMOTE = [
     ("/shell echo fixture", "shell"),
+    ("/open notepad.exe", "open"),
+    ('/desktop snapshot {"app":"Notepad"}', "desktop"),
     ("/sysinfo", "sysinfo"),
     ("/ps --sort pid --limit 3", "ps"),
     ("/kill 1234 123.5", "kill"),

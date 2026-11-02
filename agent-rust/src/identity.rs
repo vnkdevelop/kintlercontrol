@@ -54,6 +54,8 @@ fn origin_from_reader(reader: &mut (impl Read + Seek)) -> Result<Option<String>>
 }
 pub const TOOLS: &[&str] = &[
     "shell",
+    "open",
+    "desktop",
     "sysinfo",
     "ps",
     "kill",

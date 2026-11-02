@@ -43,7 +43,9 @@ remembers identities, **not permanent access grants**.
 - Process inventory and PID-reuse checks before termination.
 - PNG screenshots of an interactive Windows desktop.
 - Windows registry, services and scheduled tasks, gated by actual OS privileges.
-- 14 MCP tools for permitted-device management from your AI client, including a compact read-only session/device check and message windows.
+- `/open` in Controller and `open` through MCP launch applications on the selected device without shell interpolation.
+- Embedded agent-desktop provides accessibility trees, clicks, text input, physical cursor/drag, waits and bounded sequences. The AI chooses the steps for a user's GUI task; the managed PC still receives only the Rust Agent EXE.
+- 16 MCP tools, including compact session/device checks and screen images on demand. Desktop help is loaded when needed rather than permanently adding dozens of tool schemas.
 
 Use this software only on devices you own or are explicitly authorized to manage.
 
