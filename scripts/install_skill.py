@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from desktop.installation import register_installation, skill_local_context
 from scripts.release_layout import SKILL_FILES
 
 HOST_PATHS = {
@@ -56,10 +57,14 @@ def install(
     replace_existing: bool = False,
     home: Path | None = None,
     source: Path | None = None,
+    controller: Path | None = None,
 ) -> dict:
     source = source or skill_source()
+    context_home = home
+    controller = controller or (Path(sys.executable) if getattr(sys, "frozen", False) else None)
     home = (home or Path.home()).resolve()
     payload = {name: (source / name).read_bytes() for name in SKILL_FILES}
+    payload["references/local-installation.json"] = skill_local_context(context_home, controller)
     result: dict[str, Any] = {
         "skill": "kintler-remote",
         "dry_run": dry_run,
@@ -67,6 +72,11 @@ def install(
         "unchanged": [],
         "kept_existing": [],
     }
+    if controller is not None and not dry_run:
+        try:
+            result["installation_file"] = str(register_installation(controller, home=context_home))
+        except (OSError, ValueError):
+            result["installation_registration_failed"] = True
     for destination in targets(home, host):
         if destination.is_symlink() or (destination.exists() and not destination.is_dir()):
             raise ValueError("Refusing to replace a symlink or non-directory skill destination")
@@ -129,15 +139,22 @@ def install(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Install only the generic Kintler skill into supported local AI hosts; does not configure MCP or owner profiles"
+        description="Install the generic Kintler skill and a local file-map pointer; does not configure MCP, copy credentials or create owner profiles"
     )
     parser.add_argument("--host", choices=("all", *HOST_PATHS), default="all")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--replace-existing", action="store_true")
+    parser.add_argument(
+        "--controller",
+        type=Path,
+        help="Explicit Controller path for source-based skill installation; packaged mode knows its own path",
+    )
     args = parser.parse_args()
     print(
         json.dumps(
-            install(args.host, args.dry_run, args.replace_existing), ensure_ascii=False, indent=2
+            install(args.host, args.dry_run, args.replace_existing, controller=args.controller),
+            ensure_ascii=False,
+            indent=2,
         )
     )
 

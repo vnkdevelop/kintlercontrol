@@ -17,6 +17,7 @@ async def test_all_tools_registered_with_schemas():
     assert names == {
         "nodes",
         "capabilities",
+        "session_status",
         "shell",
         "message",
         "sysinfo",
@@ -55,7 +56,12 @@ async def test_real_mcp_stdio_login_and_tool_call(environment: Environment, tmp_
     async with stdio_client(params) as (reader, writer), ClientSession(reader, writer) as session:
         await session.initialize()
         tools = await session.list_tools()
-        assert len(tools.tools) == 13
+        assert len(tools.tools) == 14
+        status = await session.call_tool(
+            "session_status", {"node": "node_a", "required_tools": ["shell"]}
+        )
+        assert not status.isError
+        assert json.loads(status.content[0].text)["target"]["id"] == "node_a"
         result = await session.call_tool("sysinfo", {"node": "node_a"})
         assert not result.isError
         assert json.loads(result.content[0].text)["ok"]

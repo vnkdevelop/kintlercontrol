@@ -57,6 +57,8 @@ dist/
 It is not the personal ready-to-copy Agent. Public distributions are assembled with
 `scripts.assemble_release`; the complete bundle stores the portable backend image only once.
 The generated `server-kit.zip` includes the standalone `start_server.py` and the image's `.sha256` file. Run the launcher on the target server after extraction, not on the Controller PC.
+
+Each Windows user has a generated local map at `%LOCALAPPDATA%\KintlerControl\installation.json`. It records the actual Controller executable path, the chosen Deployment folders with their server kit/launcher/image files, generated Agent and owner-profile paths. It contains no relay origin, device identity or credential value, and is excluded from Git, Docker context, public ZIPs, the wheel and the embedded skill payload. Skill installation also writes `references/local-installation.json` inside each local skill copy as a pointer to this shared map; it is never packaged.
 Other release versions may be kept explicitly when needed for rollback; obsolete local
 artifacts can be removed without changing published GitHub releases.
 

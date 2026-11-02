@@ -13,6 +13,8 @@ FORBIDDEN_NAMES = {
     "deployment.json",
     "publication-policy.json",
     "publication-report.json",
+    "installation.json",
+    "local-installation.json",
 }
 FORBIDDEN_PARTS = {
     ".venv",

@@ -6,8 +6,10 @@ from dataclasses import dataclass, replace
 from dotenv import load_dotenv
 from mcp.server.fastmcp import Context, FastMCP
 
+from client.diagnostics import connection_snapshot
 from client.kintler_sdk import ClientSettings, KintlerClient
 from common.protocol import ProtocolError
+from desktop.installation import installation_information
 from desktop.presets import message_command
 
 
@@ -25,7 +27,7 @@ async def lifespan(server: FastMCP) -> AsyncIterator[Runtime]:
 mcp = FastMCP(
     "Kintler Remote",
     lifespan=lifespan,
-    instructions="Manage only explicitly enrolled devices. Call nodes and capabilities first. Destructive tools require user authorization. All operations are audited and restricted by operator ACL and local device policy. File paths on devices are relative to their configured workspace. Shell access is not a sandbox.",
+    instructions="Manage only explicitly enrolled devices. Use session_status with the requested device name/ID and required tools first; it checks health, inventory and permissions without running device commands. Pass the exact target ID in every remote call. All operations remain audited and restricted by backend ACL and Agent OS permissions. Destructive actions require explicit authorization for that device; never fall back to a local host or another node after an error. Respect administrator restrictions, do not bypass them through alternate interpreters. Transfer local_path is on the Controller host; remote_path and shell cwd are inside the selected device workspace. Shell access is not a sandbox. Device approval remains a human action in Controller.",
 )
 
 
@@ -43,6 +45,16 @@ async def nodes(ctx: Context) -> list[dict]:
 async def capabilities(ctx: Context) -> dict:
     """Get the current operator's tools, allowed NodeIDs and session expiry."""
     return await sdk(ctx).tools()
+
+
+@mcp.tool()
+async def session_status(
+    ctx: Context, node: str = "", required_tools: list[str] | None = None
+) -> dict:
+    """Read backend health, compact permitted devices, exact target and effective tool rights in one call. Does not run shell/sysinfo, change target state or approve access. Offline/not-found/ambiguous/missing tools are explicit; no automatic device selection."""
+    result = await connection_snapshot(sdk(ctx), node, required_tools)
+    result["controller_context"] = installation_information()
+    return result
 
 
 @mcp.tool()

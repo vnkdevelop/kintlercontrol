@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import ipaddress
 import re
@@ -144,4 +145,9 @@ def create_deployment(
     result["agent_folder"] = str(output / "Agent")
     if owner_profile is None:
         activate_profile(Path(result["owner_profile"]))
+        if getattr(sys, "frozen", False):
+            from desktop.installation import register_installation
+
+            with contextlib.suppress(OSError, ValueError):
+                register_installation(Path(sys.executable), output, Path(result["owner_profile"]))
     return result

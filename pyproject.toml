@@ -37,7 +37,11 @@ packages = ["server", "agent", "client", "common", "scripts", "desktop", "deploy
 "deploy/nginx.conf" = "desktop/resources/deploy/nginx.conf"
 "deploy/existing-nginx.conf" = "desktop/resources/deploy/existing-nginx.conf"
 "deploy/start_server.py" = "desktop/resources/deploy/start_server.py"
-".agents/skills/kintler-remote" = "desktop/resources/skills/kintler-remote"
+".agents/skills/kintler-remote/SKILL.md" = "desktop/resources/skills/kintler-remote/SKILL.md"
+".agents/skills/kintler-remote/references/mcp-clients.md" = "desktop/resources/skills/kintler-remote/references/mcp-clients.md"
+".agents/skills/kintler-remote/references/tools.md" = "desktop/resources/skills/kintler-remote/references/tools.md"
+".agents/skills/kintler-remote/references/troubleshooting.md" = "desktop/resources/skills/kintler-remote/references/troubleshooting.md"
+".agents/skills/kintler-remote/scripts/install-controller.cmd" = "desktop/resources/skills/kintler-remote/scripts/install-controller.cmd"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -38,3 +38,5 @@ server-config.json
 deployment.json
 publication-report.json
 publication-policy.json
+**/installation.json
+**/local-installation.json

@@ -5,6 +5,7 @@ import hashlib
 import os
 import secrets
 import time
+from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -58,6 +59,9 @@ class KintlerClient:
         self.session_id = ""
         self.expires = 0.0
         self.login_lock = asyncio.Lock()
+        self._known_node_ids: set[str] = set()
+        self._nodes_checked_at = 0.0
+        self._inventory_session = ""
 
     async def __aenter__(self) -> "KintlerClient":
         self.http = aiohttp.ClientSession(
@@ -79,6 +83,9 @@ class KintlerClient:
             await self.http.close()
             self.http = None
             self.token = ""
+        self._known_node_ids.clear()
+        self._nodes_checked_at = 0.0
+        self._inventory_session = ""
 
     async def request(
         self,
@@ -107,6 +114,9 @@ class KintlerClient:
             return value
 
     async def login(self) -> None:
+        self._known_node_ids.clear()
+        self._nodes_checked_at = 0.0
+        self._inventory_session = ""
         challenge = await self.request("POST", "/api/auth/challenge", auth=False)
         reply = await self.request(
             "POST",
@@ -127,7 +137,28 @@ class KintlerClient:
         )
 
     async def nodes(self) -> list[dict]:
-        return (await self.request("GET", "/api/nodes"))["nodes"]
+        nodes = (await self.request("GET", "/api/nodes"))["nodes"]
+        ids = Counter(
+            entry["id"]
+            for entry in nodes
+            if isinstance(entry, dict) and isinstance(entry.get("id"), str) and entry["id"]
+        )
+        names: dict[str, set[str]] = {}
+        for entry in nodes:
+            if (
+                isinstance(entry, dict)
+                and isinstance(entry.get("id"), str)
+                and isinstance(entry.get("name"), str)
+            ):
+                names.setdefault(entry["name"].casefold(), set()).add(entry["id"])
+        self._known_node_ids = {
+            node_id
+            for node_id, count in ids.items()
+            if count == 1 and names.get(node_id.casefold(), set()) <= {node_id}
+        }
+        self._nodes_checked_at = time.monotonic()
+        self._inventory_session = self.session_id
+        return nodes
 
     async def tools(self) -> dict:
         return await self.request("GET", "/api/tools")
@@ -141,6 +172,12 @@ class KintlerClient:
         )
 
     async def resolve(self, node: str) -> str:
+        if (
+            node in self._known_node_ids
+            and self._inventory_session == self.session_id
+            and time.monotonic() - self._nodes_checked_at < 3
+        ):
+            return node
         matches = [
             n
             for n in await self.nodes()

@@ -43,7 +43,7 @@ remembers identities, **not permanent access grants**.
 - Process inventory and PID-reuse checks before termination.
 - PNG screenshots of an interactive Windows desktop.
 - Windows registry, services and scheduled tasks, gated by actual OS privileges.
-- 13 MCP tools for permitted-device management from your AI client, including message windows.
+- 14 MCP tools for permitted-device management from your AI client, including a compact read-only session/device check and message windows.
 
 Use this software only on devices you own or are explicitly authorized to manage.
 

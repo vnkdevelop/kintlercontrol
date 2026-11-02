@@ -9,6 +9,8 @@ from pathlib import Path
 
 from PIL import Image
 
+from scripts.release_layout import SKILL_FILES
+
 
 def command(argv: list[str], env: dict[str, str] | None = None) -> None:
     subprocess.run(
@@ -123,9 +125,13 @@ def main() -> None:
                     "textual",
                     "--add-data",
                     f"{output / 'KintlerAgent.exe'};embedded",
-                    "--add-data",
-                    f"{root / '.agents/skills/kintler-remote'};skills/kintler-remote",
                 ]
+                for item in SKILL_FILES:
+                    destination = str(Path("skills/kintler-remote") / Path(item).parent)
+                    args += [
+                        "--add-data",
+                        f"{root / '.agents/skills/kintler-remote' / item};{destination}",
+                    ]
                 for item in (
                     "docker-compose.yml",
                     "docker-compose.tls.yml",

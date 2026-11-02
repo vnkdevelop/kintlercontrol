@@ -5,6 +5,8 @@ SKILL_ARCHIVE_NAME = "KintlerControl-Skill.zip"
 SKILL_FILES = (
     "SKILL.md",
     "references/mcp-clients.md",
+    "references/tools.md",
+    "references/troubleshooting.md",
     "scripts/install-controller.cmd",
 )
 SERVER_FILES = {

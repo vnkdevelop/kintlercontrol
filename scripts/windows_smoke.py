@@ -26,7 +26,9 @@ from server.app import SERVICE, create_app
 from server.config import Credential, Settings
 
 
-async def start(executable: Path, *args: str) -> asyncio.subprocess.Process:
+async def start(
+    executable: Path, *args: str, local_data: Path | None = None
+) -> asyncio.subprocess.Process:
     return await asyncio.create_subprocess_exec(
         "cmd.exe",
         "/d",
@@ -36,6 +38,7 @@ async def start(executable: Path, *args: str) -> asyncio.subprocess.Process:
         stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
+        env=dict(os.environ, LOCALAPPDATA=str(local_data)) if local_data else None,
     )
 
 
@@ -253,7 +256,12 @@ async def run(root: Path, temporary: Path) -> None:
             if role == "agent":
                 assert json.loads(result.read_text())["native"]
                 write_env(temporary / role / "unused/.env", {"KINTLER_URL": "https://127.0.0.1:1"})
-            window = await start(executable, "--env", str(temporary / role / "unused/.env"))
+            window = await start(
+                executable,
+                "--env",
+                str(temporary / role / "unused/.env"),
+                local_data=temporary / "user-data",
+            )
             try:
                 for _ in range(200):
                     if window.returncode is not None:
@@ -395,7 +403,7 @@ async def run(root: Path, temporary: Path) -> None:
                     ClientSession(reader, writer) as session,
                 ):
                     await asyncio.wait_for(session.initialize(), 60)
-                    assert len((await session.list_tools()).tools) == 13
+                    assert len((await session.list_tools()).tools) == 14
                     mcp_result = await session.call_tool("sysinfo", {"node": node})
                     content = mcp_result.content[0]
                     assert isinstance(content, TextContent)
