@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from agent.modules import executor
@@ -23,7 +24,7 @@ def open_application(args: dict, root: Path) -> dict:
         or any(not isinstance(v, str) or len(v) > 10000 or "\0" in v for v in arguments)
     ):
         raise ProtocolError("Invalid application arguments")
-    if os.name == "nt":
+    if sys.platform == "win32":
         os.startfile(app, "open", subprocess.list2cmdline(arguments), str(root))
         return {"ok": True, "accepted": True, "verification": "launch_requested"}
     if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
