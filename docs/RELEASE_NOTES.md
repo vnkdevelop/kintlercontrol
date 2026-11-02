@@ -1,10 +1,15 @@
-# KintlerControl 1.5.1
+# KintlerControl 1.5.2
 
-Self-hosted release with one complete generic bundle, two self-contained Windows EXE files, a portable Docker backend and AI skill integration.
+Client and AI-integration release: the Windows Controller, MCP surface and portable skill changed; relay logic is the same as 1.5.1.
 
-- Generated server kits now include standalone `start_server.py`: read-only checks, SHA-256-verified image loading or registry pulling, missing Caddy image downloads, Compose startup and bounded relay-health checks. Python/Docker/Compose remain explicit server prerequisites; no OS installation is silently attempted.
-- Controller status is now only `Kintler подключён · доступно N` or `Kintler не подключён · доступно 0`, independent of the selected device. Missing-target errors point directly to `/use имя ПК`.
-- Backend health now checks database access/write capability, maintenance-loop liveness and detected API failures instead of always returning `ok`.
+- MCP exposes 14 tools. New read-only `session_status(node, required_tools)` returns backend health, compact permitted devices, the uniquely matched target, effective tool rights and the recommended interpreter in one call. It runs no shell/sysinfo on the device, selects no default target and never approves access.
+- Exact NodeIDs from a fresh inventory are reused for up to three seconds inside one SDK session; names still resolve against fresh inventory and the backend re-checks ACL and online approval on every command.
+- Controller gained `--probe` (read-only connection/device JSON without device commands or result files), `--installation-info` and complete `--help` coverage of MCP/skill/setup/deploy modes. JSON output is always UTF-8.
+- New local installation map at `%LOCALAPPDATA%\KintlerControl\installation.json` records the actual (including portable) Controller path, chosen Deployment folders, server kit/launcher/image, generated Agent and owner-profile path. It stores no relay origin, device identity or credential value and is excluded from Git, Docker context, public ZIPs, the wheel and the embedded skill.
+- Skill installation writes `references/local-installation.json` inside each local skill copy as a pointer to that shared map, so moving and reopening Controller updates one file.
+- Skill rewritten around a fast path: one `session_status` call before device work, no process/registry/disk discovery, no SDK/venv substitution. Tool parameters moved to `references/tools.md`; OS restrictions (ACL, AppLocker/GPO) are handled in `references/troubleshooting.md` only after a real error, and confirmed administrator blocks are never bypassed.
+- Generated server kits keep the standalone `start_server.py` launcher with SHA-256-verified image loading, registry fallback, Compose startup and bounded health checks.
+- Controller status remains `Kintler подключён · доступно N` or `Kintler не подключён · доступно 0`; missing-target errors point to `/use имя ПК`.
 
 - Native Rust agent with no embedded relay address or client identity.
 - Controller contains terminal UI, setup, MCP, skill installation, host-specific MCP config output and deployment modes in the same EXE.
@@ -16,7 +21,7 @@ Self-hosted release with one complete generic bundle, two self-contained Windows
 - Every new agent connection requires explicit owner approval and a fresh six-digit code from Agent entered in Controller, including known devices.
 - Read-only registry/service/task inspection respects OS ACL; mutations retain Admin/root and authorization checks. Entered Controller commands run without a second confirmation popup; fresh device-code approval remains mandatory.
 - Full online-device picker, masked approval-code entry, Windows clipboard paste, screenshot progress/default viewer and literal Russian-capable message windows are included.
-- MCP now exposes 13 tools, including `message`, using the existing shell permission without changing the relay protocol.
+- MCP also includes `message` using the existing shell permission without changing the relay protocol.
 - Obsolete Tk UI, tool-form metadata and unused generated leaf artwork were removed; compatibility entrypoints, Linux/Python tooling, security tests and current icon sources remain.
 - Portable AI skill installs a missing Controller EXE with SHA-256 validation and directs native-host stdio setup on request. Skill installation never grants an owner identity or device access; manual control does not need MCP.
 - Ed25519 identities, local Windows DPAPI protection, bounded commands and SHA-256 file transfer.

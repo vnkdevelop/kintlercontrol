@@ -1,4 +1,4 @@
-# KintlerControl 1.5.1 — start here / начните здесь
+# KintlerControl 1.5.2 — start here / начните здесь
 
 ## What you downloaded
 

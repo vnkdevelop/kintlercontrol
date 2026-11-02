@@ -4,7 +4,7 @@ description: >-
   Use Kintler MCP to work on a selected remote Windows/Linux device or configure its local stdio connection in the current AI host. Install the Controller only if missing; use existing tools immediately without studying source code. Not for developing KintlerControl itself.
 metadata:
   product: kintlercontrol
-  version: "1.5.1"
+  version: "1.5.2"
   revision: "installation-map-1"
 ---
 

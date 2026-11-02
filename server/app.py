@@ -127,7 +127,7 @@ class Service:
         except Exception:
             healthy = False
         return web.json_response(
-            {"status": "ok" if healthy else "unhealthy", "version": "1.5.1"},
+            {"status": "ok" if healthy else "unhealthy", "version": "1.5.2"},
             status=200 if healthy else 503,
         )
 
