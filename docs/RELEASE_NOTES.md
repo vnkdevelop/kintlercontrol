@@ -1,6 +1,10 @@
-# KintlerControl 1.5.0
+# KintlerControl 1.5.1
 
 Self-hosted release with one complete generic bundle, two self-contained Windows EXE files, a portable Docker backend and AI skill integration.
+
+- Generated server kits now include standalone `start_server.py`: read-only checks, SHA-256-verified image loading or registry pulling, missing Caddy image downloads, Compose startup and bounded relay-health checks. Python/Docker/Compose remain explicit server prerequisites; no OS installation is silently attempted.
+- Controller status is now only `Kintler подключён · доступно N` or `Kintler не подключён · доступно 0`, independent of the selected device. Missing-target errors point directly to `/use имя ПК`.
+- Backend health now checks database access/write capability, maintenance-loop liveness and detected API failures instead of always returning `ok`.
 
 - Native Rust agent with no embedded relay address or client identity.
 - Controller contains terminal UI, setup, MCP, skill installation, host-specific MCP config output and deployment modes in the same EXE.

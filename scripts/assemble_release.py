@@ -11,6 +11,12 @@ from scripts.release_layout import BUNDLE_NAME, SKILL_ARCHIVE_NAME, SKILL_FILES,
 
 def assemble(directory: Path) -> None:
     root = Path(__file__).resolve().parents[1]
+    image = directory / "backend/kintlercontrol-image.tar"
+    with image.open("rb") as handle:
+        image_checksum = hashlib.file_digest(handle, "sha256").hexdigest()
+    image.with_name(image.name + ".sha256").write_text(
+        image_checksum + "  kintlercontrol-image.tar\n", encoding="utf-8"
+    )
     files = bundle_sources(root, directory)
     version = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"][
         "version"

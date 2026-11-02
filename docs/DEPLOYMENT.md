@@ -3,14 +3,15 @@
 ## Recommended path: setup wizard + Docker
 
 1. Point a DNS name such as `relay.example.com` to your Linux server.
-2. Install Docker Engine and the Compose plugin. Open TCP 80/443 for automatic HTTPS.
+2. Install Python 3.10+, Docker Engine and the Compose plugin. Open TCP 80/443 for automatic HTTPS.
 3. On the owner Windows PC, extract the public Windows release and open Setup inside `KintlerController.exe`.
 4. Enter `https://relay.example.com`, choose a new/empty output directory, and select automatic HTTPS.
 5. Upload the generated `server-kit.zip` using SFTP/SCP and extract it outside a public web directory.
-6. Run the exact Compose command written in `START_HERE.md`.
+6. Run the server-local launcher included in the kit. It requires no project installation or SSH settings.
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+python3 start_server.py --check
+python3 start_server.py
 docker compose ps
 curl --fail https://relay.example.com/healthz
 ```
@@ -36,6 +37,8 @@ Docker Engine + Compose, stable network/DNS. Recommended: 2 vCPU, 2 GB RAM and
 10+ GB with monitoring and backups. Maximum concurrency is not a load-tested
 capacity promise. Keep one relay process/replica.
 
+`start_server.py` is standalone standard-library Python. It reads this deployment's Compose configuration without printing credentials, verifies `kintlercontrol-image.tar.sha256`, loads the matching bundled image or pulls the configured published image, downloads missing Compose images and waits for relay health. `--check` performs no image load/pull or container startup. The script does not install Docker or Compose, rewrite `.env`, delete volumes, replace unrelated containers or stop existing web servers. Correct public DNS and external HTTPS must still be verified separately. See [server-local startup](SERVER_START.md).
+
 ## Updates and backups
 
 Pull the desired image version and run `docker compose up -d`. Preserve `.env`,
@@ -59,7 +62,7 @@ Keep Caddy data/config volumes for certificate renewal state.
 ## Русский
 
 Основной путь: свой DNS-домен → Docker с Compose → мастер на ПК владельца →
-сгенерированный server-kit.zip → распаковка на сервере → команда из START_HERE.md.
+сгенерированный server-kit.zip → распаковка на сервере → `python3 start_server.py --check` → `python3 start_server.py`.
 При автоматическом HTTPS Caddy выпускает и продлевает сертификат. Нужны TCP 80/443.
 Для существующего прокси используйте отдельный режим и свои сертификаты; не
 перезаписывайте рабочие сайты. Сохраняйте volumes при обновлении. Каждая новая

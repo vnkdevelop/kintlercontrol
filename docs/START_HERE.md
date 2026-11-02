@@ -1,4 +1,4 @@
-# KintlerControl 1.5.0 — start here / начните здесь
+# KintlerControl 1.5.1 — start here / начните здесь
 
 ## What you downloaded
 
@@ -15,10 +15,10 @@ This is a generic installation kit: no server address, owner key, device identit
 
 ## Human setup
 
-1. Prepare your own Linux server with Docker Engine + Compose and a DNS hostname. Automatic HTTPS needs free, reachable TCP 80/443. If you already have a proxy, do not replace it.
+1. Prepare your own Linux amd64 server with Python 3.10+, Docker Engine + Compose and a DNS hostname. Automatic HTTPS needs free, reachable TCP 80/443. If you already have a proxy, do not replace it.
 2. On the owner Windows PC, run `clients/windows/KintlerController.exe`.
 3. Enter `/setup https://relay.example.com D:\Your-Kintler-Deployment`, replacing the example origin/output. Choose a new or empty output directory. For an existing proxy add `--mode existing-proxy`.
-4. Transfer the generated `server-kit.zip` to a private application directory on your server, extract it and run the command in its `START_HERE.md`. The bundled image is discovered under `server/` and Setup adds `docker load` when available. Owner private keys remain on the owner PC under Windows DPAPI.
+4. Transfer the generated `server-kit.zip` to a private application directory on your server and extract it, preserving `.env`. Run `python3 start_server.py --check`, then `python3 start_server.py`. The kit contains this standalone launcher, the Docker image and its SHA-256 file. The script loads the image or pulls the configured published image, downloads missing Caddy images, starts Compose and checks relay health. Owner private keys remain on the owner PC under Windows DPAPI. Once the backend is ready, use `/reconnect` in Controller or reopen it.
 5. Copy only the generated `Agent/KintlerAgent.exe` to a target Windows PC and run it. Do not distribute the unconfigured generic Agent instead.
 6. In Controller, open `/approve`, select that device and enter its fresh six-digit Agent code. Then `/use` selects an online device. This approval is required on every connection, including known devices.
 7. `/help` lists commands; Ctrl+V pastes. `/screenshot` downloads/opens an image; `/message your text` shows a Windows message window. OS privileges and enabled tool policy still apply.
@@ -36,7 +36,7 @@ For host-specific setup see `docs/AI_SETUP.md`. A local Windows process with the
 
 - Запустите `clients/windows/KintlerController.exe` на ПК владельца.
 - `/setup ВАШ_HTTPS_АДРЕС ПУСТОЙ_КАТАЛОГ` создаёт отдельный server kit и настроенный Agent. Для существующего прокси — `--mode existing-proxy`.
-- На сервер отправляйте созданный `server-kit.zip`, а не личный профиль Controller. Команда запуска записана внутри комплекта.
+- На сервер отправляйте созданный `server-kit.zip`, а не личный профиль Controller. После распаковки: `python3 start_server.py --check`, затем `python3 start_server.py`. Нужны заранее установленные Python 3.10+, Docker и Compose; скрипт сам загрузит образ и запустит контейнеры. После запуска выполните `/reconnect` в Controller.
 - На управляемый ПК переносите **только сгенерированный Agent.exe**. Каждый новый вход подтверждайте в `/approve` по его 6-значному коду. `/use` выбирает доступный ПК.
 - Человеку MCP не нужен. Для AI установите `/install-skill`, затем попросите агента работать через Kintler. Он настроит свой stdio MCP и проверит инструменты, но не подтвердит устройство за вас.
 - Не публикуйте созданные профили, server kit, ключи, аудит или настроенный личный Agent. Скачанный исходный комплект универсальный; созданные после Setup файлы — персональные.

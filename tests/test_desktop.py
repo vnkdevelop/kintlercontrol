@@ -62,6 +62,8 @@ async def test_controller_requires_manual_code_for_known_device(tmp_path: Path, 
     app = ControllerApp(tmp_path / ".env", autoconnect=False)
     async with app.run_test(size=(100, 36)) as pilot:
         client = AsyncMock()
+        client.request.return_value = {"status": "ok"}
+        client.tools.return_value = {"can_approve": True}
         client.nodes.return_value = []
         client.approvals.return_value = []
         app.client = client

@@ -58,7 +58,9 @@ def test_complete_bundle_contains_only_required_generic_payload(tmp_path: Path):
         assert "server/deploy/existing-nginx.conf" in names
         assert "docs/AI_SETUP.md" in names
         manifest = json.loads(archive.read("MANIFEST.json"))
-        assert manifest["version"] == "1.5.0"
+        assert manifest["version"] == "1.5.1"
+        assert "server/start_server.py" in names
+        assert "server/kintlercontrol-image.tar.sha256" in names
         assert not any(name.startswith(".private/") or name.endswith("/.env") for name in names)
     with zipfile.ZipFile(tmp_path / SKILL_ARCHIVE_NAME) as archive:
         assert set(archive.namelist()) == {"kintler-remote/" + name for name in SKILL_FILES}

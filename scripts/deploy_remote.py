@@ -72,7 +72,7 @@ def deploy(path: Path, image: str | None = None, dry_run: bool = False) -> dict:
         raise ValueError(
             "KINTLER_SERVER_FOLDER must be the generated server folder, not a directory with client profiles"
         )
-    image = image or values.get("KINTLER_DEPLOY_IMAGE", "ghcr.io/vnkdevelop/kintlercontrol:1.5.0")
+    image = image or values.get("KINTLER_DEPLOY_IMAGE", "ghcr.io/vnkdevelop/kintlercontrol:1.5.1")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./:@-]+", image):
         raise ValueError("Invalid Docker image reference")
     target = values["KINTLER_SSH_USER"] + "@" + values["KINTLER_SSH_HOST"]
@@ -98,6 +98,7 @@ def deploy(path: Path, image: str | None = None, dry_run: bool = False) -> dict:
             "docker-compose.tls.yml",
             "Caddyfile",
             "owner-public.json",
+            "start_server.py",
         ]
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as package:
             for name in names:

@@ -146,7 +146,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Isolated TLS container smoke test; removes only its own containers, network and temporary files"
     )
-    parser.add_argument("--image", default="kintlercontrol:1.5.0")
+    parser.add_argument("--image", default="kintlercontrol:1.5.1")
     args = parser.parse_args()
     suffix = secrets.token_hex(4)
     network, relay, proxy = ("kintler-smoke-" + suffix + tag for tag in ("-net", "-relay", "-tls"))

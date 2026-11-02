@@ -79,15 +79,15 @@ KintlerControl связывает ваши Windows-ПК через **ваш со
 приложения, не в web-root сайта. Выполните команду из `START_HERE.md`:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+python3 start_server.py --check
+python3 start_server.py
 ```
 
 Caddy сам получает и продлевает HTTPS-сертификат. Прямой порт relay на хосте
 доступен только через loopback, внешний трафик идёт через прокси.
 
 Полный комплект включает готовый Docker image tar в `server/`. Мастер добавляет
-его в server kit и указывает `docker load` перед Compose: вход в registry и
-пересборка образа пользователю не нужны.
+его в server kit вместе с SHA-256 и самостоятельным `start_server.py`. Скрипт проверяет и загружает образ, скачивает недостающие образы вроде Caddy и запускает Compose. Вход в registry и пересборка образа пользователю не нужны. На сервере заранее нужны Python 3.10+, Docker и Compose. После запуска выполните `/reconnect` в Controller.
 
 Уже есть Nginx/HTTPS-прокси? Выберите **Existing HTTPS proxy** и следуйте
 [инструкции](docs/DEPLOYMENT.md). Не перезаписывайте работающую конфигурацию

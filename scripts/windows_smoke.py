@@ -33,6 +33,7 @@ async def start(executable: Path, *args: str) -> asyncio.subprocess.Process:
         "/s",
         "/c",
         subprocess.list2cmdline([str(executable), *args]),
+        stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.DEVNULL,
     )

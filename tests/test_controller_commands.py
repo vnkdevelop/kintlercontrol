@@ -13,6 +13,7 @@ from tests.conftest import Environment
 
 def client_for(app, admin=False, platform="Windows"):
     client = AsyncMock()
+    client.request.return_value = {"status": "ok"}
     node = {
         "id": "node_fixture",
         "name": "fixture",
@@ -29,6 +30,7 @@ def client_for(app, admin=False, platform="Windows"):
     client.download.return_value = {"ok": True, "path": "downloaded"}
     client.checked.return_value = {"ok": True, "path": "shot.png"}
     app.client = client
+    app.backend_healthy = True
     app.nodes = {node["id"]: node}
     app.target = node["id"]
     app.capabilities = client.tools.return_value

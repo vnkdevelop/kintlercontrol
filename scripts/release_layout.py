@@ -15,6 +15,7 @@ SERVER_FILES = {
     "remote-deploy.env.example": "deploy/.env.example",
     "Caddyfile": "deploy/Caddyfile",
     "bootstrap_backend.py": "deploy/bootstrap_backend.py",
+    "start_server.py": "deploy/start_server.py",
     "deploy/nginx.conf": "deploy/nginx.conf",
     "deploy/existing-nginx.conf": "deploy/existing-nginx.conf",
 }
@@ -25,6 +26,7 @@ DOC_FILES = (
     "SINGLE_EXE.md",
     "PROJECT_LAYOUT.md",
     "AI_SETUP.md",
+    "SERVER_START.md",
 )
 
 
@@ -43,6 +45,8 @@ def bundle_sources(root: Path, directory: Path) -> dict[str, Path]:
         "LICENSE": root / "LICENSE",
         "clients/windows/SHA256.json": checksums[0],
         "server/kintlercontrol-image.tar": directory / "backend/kintlercontrol-image.tar",
+        "server/kintlercontrol-image.tar.sha256": directory
+        / "backend/kintlercontrol-image.tar.sha256",
     }
     files.update({"clients/windows/" + path.name: path for path in clients})
     files.update({"server/" + name: root / source for name, source in SERVER_FILES.items()})

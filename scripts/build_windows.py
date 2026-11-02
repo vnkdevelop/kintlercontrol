@@ -135,6 +135,7 @@ def main() -> None:
                 for item in (
                     "Caddyfile",
                     "bootstrap_backend.py",
+                    "start_server.py",
                     "nginx.conf",
                     "existing-nginx.conf",
                 ):

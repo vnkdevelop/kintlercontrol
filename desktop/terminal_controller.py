@@ -233,6 +233,7 @@ class TerminalController(App[None]):
         self.path = path or profile("controller")
         self.autoconnect = autoconnect
         self.client: KintlerClient | None = None
+        self.backend_healthy = False
         self.nodes: dict[str, dict] = {}
         self.requests: list[dict] = []
         self.capabilities: dict = {}
@@ -278,12 +279,7 @@ class TerminalController(App[None]):
                     "ctrl+p команды    ctrl+d устройства    ctrl+c отмена    ctrl+q выход",
                     id="hint",
                 )
-        yield Static(
-            "Подключение к Kintler…"
-            if self.path.is_file()
-            else "Первый запуск: /setup — настроить свой Kintler",
-            id="status",
-        )
+        yield Static("Kintler не подключён · доступно 0", id="status")
 
     async def on_mount(self) -> None:
         self.query_one("#prompt", Input).focus()
@@ -296,23 +292,9 @@ class TerminalController(App[None]):
         self.query_one("#transcript", RichLog).write(Text(redact(message, 10000), style=color))
 
     def update_status(self) -> None:
-        if self.client is None:
-            value = (
-                "Подключение к Kintler…"
-                if self.connecting
-                else "Нет связи с Kintler · /reconnect — повторить"
-                if self.path.is_file()
-                else "Первый запуск: /setup — настроить свой Kintler"
-            )
-        elif self.target and self.target in self.nodes:
-            node = self.nodes[self.target]
-            value = f"{node['name']} · {'Online' if node['online'] else 'Offline'} · {'Admin' if node.get('admin') else 'User'}"
-        else:
-            value = (
-                f"Kintler подключён · {len(self.requests)} ожидают доступа · /approve — ввести код"
-                if self.requests
-                else f"Kintler подключён · {sum(bool(node['online']) for node in self.nodes.values())} ПК доступны · /devices — выбрать ПК"
-            )
+        connected = self.client is not None and self.backend_healthy
+        available = sum(bool(node["online"]) for node in self.nodes.values()) if connected else 0
+        value = f"Kintler {'подключён' if connected else 'не подключён'} · доступно {available}"
         self.query_one("#status", Static).update(Text(value, style=MUTED))
         self.query_one("#prompt", Input).placeholder = (
             f"{self.nodes[self.target]['name']} › команда или /help"
@@ -330,8 +312,9 @@ class TerminalController(App[None]):
             client = KintlerClient(settings)
             await client.__aenter__()
             self.client = client
-            self.capabilities = await client.tools()
             await self.refresh_remote()
+            if not self.backend_healthy:
+                raise ProtocolError("Backend health check failed")
             self.notify(
                 "Связь с Kintler установлена. Новый ПК: /approve и код из Agent. Ваши ПК: /devices.",
                 title="Kintler",
@@ -350,6 +333,7 @@ class TerminalController(App[None]):
     async def disconnect(self) -> None:
         await self.cancel_jobs()
         client, self.client = self.client, None
+        self.backend_healthy = False
         if client:
             with contextlib.suppress(aiohttp.ClientError, ProtocolError, TimeoutError):
                 await client.__aexit__()
@@ -363,10 +347,19 @@ class TerminalController(App[None]):
         client = self.client
         self.refreshing = True
         try:
-            nodes = {node["id"]: node for node in await client.nodes()}
-            requests = await client.approvals() if self.capabilities.get("can_approve") else []
+            async with asyncio.timeout(5):
+                capabilities = await client.tools()
+                nodes = {node["id"]: node for node in await client.nodes()}
+                requests = await client.approvals() if capabilities.get("can_approve") else []
+                if self.client is not client:
+                    return
+                health = await client.request("GET", "/healthz", auth=False)
+                if not isinstance(health, dict) or health.get("status") != "ok":
+                    raise ProtocolError("Backend health check failed")
             if self.client is not client:
                 return
+            self.backend_healthy = True
+            self.capabilities = capabilities
             self.nodes, self.requests = nodes, requests
             for request in self.requests:
                 if request["request_id"] not in self.seen_requests:
@@ -382,11 +375,10 @@ class TerminalController(App[None]):
             entry = self.query_one("#prompt", Input)
             if entry.has_focus and entry.value.lower().lstrip().startswith("/use"):
                 self.suggest(Input.Changed(entry, entry.value))
-        except (aiohttp.ClientError, ProtocolError, TimeoutError):
+        except (aiohttp.ClientError, ProtocolError, TimeoutError, ValueError, KeyError, TypeError):
             if self.client is client:
-                self.query_one("#status", Static).update(
-                    "Нет связи с Kintler · проверяем автоматически · /reconnect — повторить сейчас"
-                )
+                self.backend_healthy = False
+                self.update_status()
         finally:
             self.refreshing = False
 
@@ -570,7 +562,7 @@ class TerminalController(App[None]):
     def require_target(self, tool: str, args: dict) -> tuple[KintlerClient, str, dict]:
         client = self.require_client()
         if self.target not in self.nodes:
-            raise ValueError("Выберите устройство: /devices, затем /use имя")
+            raise ValueError("Используйте команду /use имя ПК")
         node = self.nodes[self.target]
         if not node["online"]:
             raise ValueError(

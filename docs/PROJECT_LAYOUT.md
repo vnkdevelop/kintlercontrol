@@ -42,7 +42,7 @@ tests, packaging and public installations keep working.
 ```text
 dist/
   windows/                         generic EXEs + SHA256.json, used by build/smoke/CI
-  releases/v1.5.0/                 complete bundle + skill ZIP + Controller bootstrap + SHA256SUMS.txt
+  releases/v1.5.1/                 complete bundle + skill ZIP + Controller bootstrap + SHA256SUMS.txt
 .private/
   clients/windows/                 configured personal Agent + portable Controller
   deployment/server/               actual server kit: .env, Compose, public registration, proxy files
@@ -56,6 +56,7 @@ dist/
 `dist/windows/KintlerAgent.exe` is generic: configure it through Controller Setup before use.
 It is not the personal ready-to-copy Agent. Public distributions are assembled with
 `scripts.assemble_release`; the complete bundle stores the portable backend image only once.
+The generated `server-kit.zip` includes the standalone `start_server.py` and the image's `.sha256` file. Run the launcher on the target server after extraction, not on the Controller PC.
 Other release versions may be kept explicitly when needed for rollback; obsolete local
 artifacts can be removed without changing published GitHub releases.
 

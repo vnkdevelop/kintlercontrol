@@ -32,6 +32,10 @@ class Service:
         self.approvals = Approvals(settings, self.auth, self.registry, self.storage)
         self.connections: set[web.WebSocketResponse] = set()
         self.pending_connections = 0
+        self.maintenance_task: asyncio.Task | None = None
+        self.maintenance_healthy = True
+        self.maintenance_last_tick = time.monotonic()
+        self.failed_routes: set[str] = set()
 
     def peer(self, request: web.Request) -> str:
         address = request.remote or "unknown"
@@ -76,6 +80,7 @@ class Service:
                 principal, "", "agent", node, public_key=public
             )
         task = asyncio.create_task(self.maintenance())
+        self.maintenance_task = task
         yield
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
@@ -93,7 +98,10 @@ class Service:
             try:
                 await self.router.tick()
             except Exception:
+                self.maintenance_healthy = False
                 logger.exception("Command maintenance failed; check audit storage")
+            else:
+                self.maintenance_healthy = True
             for node in list(self.registry.nodes.values()):
                 if node.socket and (
                     time.time() - node.last_seen > self.settings.heartbeat_timeout
@@ -103,9 +111,25 @@ class Service:
             for session_id, socket in list(self.router.controllers.items()):
                 if session_id not in self.auth.sessions:
                     await socket.close(code=1008, message=b"Session expired")
+            self.maintenance_last_tick = time.monotonic()
 
     async def health(self, request: web.Request) -> web.Response:
-        return web.json_response({"status": "ok", "version": "1.5.0"})
+        healthy = (
+            self.maintenance_task is not None
+            and not self.maintenance_task.done()
+            and self.maintenance_healthy
+            and time.monotonic() - self.maintenance_last_tick <= 10
+            and not self.failed_routes
+        )
+        try:
+            async with asyncio.timeout(2):
+                await self.storage.health()
+        except Exception:
+            healthy = False
+        return web.json_response(
+            {"status": "ok" if healthy else "unhealthy", "version": "1.5.1"},
+            status=200 if healthy else 503,
+        )
 
     async def challenge(self, request: web.Request) -> web.Response:
         return web.json_response(self.auth.challenge(self.peer(request)))
@@ -394,6 +418,12 @@ async def security(
     except Exception:
         logger.exception("Request failed: %s", request.path)
         response = web.json_response({"error": "Internal server error"}, status=500)
+    if request.path != "/healthz":
+        route = getattr(request.match_info.route.resource, "canonical", request.path)
+        if response.status >= 500:
+            service.failed_routes.add(route)
+        elif response.status < 400:
+            service.failed_routes.discard(route)
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response

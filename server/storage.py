@@ -76,6 +76,21 @@ class Storage:
         await self.run(self.connection.close)
         self.executor.shutdown(wait=True)
 
+    async def health(self) -> None:
+        def check() -> None:
+            self.connection.execute("SAVEPOINT kintler_health")
+            try:
+                self.connection.execute("SELECT id FROM nodes LIMIT 1").fetchone()
+                self.connection.execute("SELECT principal FROM agent_keys LIMIT 1").fetchone()
+                self.connection.execute(
+                    "INSERT INTO audit(at,action,principal,session_id,node_id,command_id,detail) VALUES(0,'health','','','','','{}')"
+                )
+            finally:
+                self.connection.execute("ROLLBACK TO SAVEPOINT kintler_health")
+                self.connection.execute("RELEASE SAVEPOINT kintler_health")
+
+        await self.run(check)
+
     async def load_agent_keys(self) -> list[tuple[str, str, str]]:
         return await self.run(
             lambda: self.connection.execute(

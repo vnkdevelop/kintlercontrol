@@ -96,15 +96,18 @@ async def test_terminal_prompt_palette_and_short_names(tmp_path: Path, size):
         }
         app.target = "node_long_identifier"
         app.client = AsyncMock()
+        app.backend_healthy = True
         app.update_status()
-        assert "laptop" in str(app.query_one("#status", Static).render())
-        assert "node_long_identifier" not in str(app.query_one("#status", Static).render())
+        assert app.query_one("#status", Static).content.plain == "Kintler подключён · доступно 1"
+        assert "laptop" in prompt.placeholder
 
 
 async def test_manual_approval_and_cancel_are_bound_to_request(tmp_path: Path):
     app = TerminalController(tmp_path / ".env", autoconnect=False)
     async with app.run_test(size=(110, 36)):
         client = AsyncMock()
+        client.request.return_value = {"status": "ok"}
+        client.tools.return_value = {"can_approve": True}
         client.nodes.return_value = []
         client.approvals.return_value = []
         app.client = client
@@ -121,6 +124,8 @@ async def test_refresh_does_not_restore_disconnected_session(tmp_path: Path):
     app = TerminalController(tmp_path / ".env", autoconnect=False)
     async with app.run_test(size=(110, 36)):
         client = AsyncMock()
+        client.request.return_value = {"status": "ok"}
+        client.tools.return_value = {"can_approve": True}
 
         async def nodes():
             await app.disconnect()
@@ -150,6 +155,8 @@ async def test_shell_sends_immediately_and_remains_cancellable(tmp_path: Path):
     app = TerminalController(tmp_path / ".env", autoconnect=False)
     async with app.run_test(size=(110, 36)) as pilot:
         client = AsyncMock()
+        client.request.return_value = {"status": "ok"}
+        client.tools.return_value = {"tools": ["shell"]}
         started = asyncio.Event()
 
         async def wait_for_command(*args):
@@ -185,6 +192,8 @@ async def test_approval_asks_for_code_and_never_logs_it(tmp_path: Path, command,
     app = TerminalController(tmp_path / ".env", autoconnect=False)
     async with app.run_test(size=size) as pilot:
         client = AsyncMock()
+        client.request.return_value = {"status": "ok"}
+        client.tools.return_value = {"can_approve": True}
         requests = [
             {"request_id": "req_test", "node_id": "node_test", "name": "laptop", "known": True}
         ]
@@ -216,6 +225,8 @@ async def test_code_only_requires_explicit_device_when_requests_are_ambiguous(tm
     app = TerminalController(tmp_path / ".env", autoconnect=False)
     async with app.run_test(size=(110, 36)) as pilot:
         client = AsyncMock()
+        client.request.return_value = {"status": "ok"}
+        client.tools.return_value = {"can_approve": True}
         client.nodes.return_value = []
         client.approvals.return_value = [
             {"request_id": "req_one", "node_id": "node_one", "name": "one"},
@@ -239,6 +250,8 @@ async def test_cancel_closes_pairing_without_approval(tmp_path: Path):
     app = TerminalController(tmp_path / ".env", autoconnect=False)
     async with app.run_test(size=(110, 36)) as pilot:
         client = AsyncMock()
+        client.request.return_value = {"status": "ok"}
+        client.tools.return_value = {"can_approve": True}
         client.nodes.return_value = []
         client.approvals.return_value = [
             {"request_id": "req_test", "node_id": "node_test", "name": "laptop"}

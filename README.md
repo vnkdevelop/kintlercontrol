@@ -79,15 +79,15 @@ Upload `server-kit.zip` by SFTP/SCP, extract it into a private application direc
 and run the command written in its `START_HERE.md`:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+python3 start_server.py --check
+python3 start_server.py
 ```
 
 Caddy obtains and renews the HTTPS certificate automatically. The relay stays
 behind the proxy; its direct host port is loopback-only.
 
 The complete bundle includes a portable backend image under `server/`. When present,
-the wizard adds it to the server kit and writes a `docker load` command before
-Compose—no registry login or local image build is required.
+the wizard adds it, its SHA-256 file and the standalone `start_server.py` launcher to the kit. The launcher verifies/loads the image, downloads missing images such as Caddy and starts Compose—no registry login or local image build is required. Python 3.10+, Docker and Compose must already be installed on the server. Use `/reconnect` in Controller after the backend is ready.
 
 Already have Nginx or another HTTPS proxy? Choose **Existing HTTPS proxy** in the
 wizard and follow [the deployment guide](docs/DEPLOYMENT.md). Do not replace a

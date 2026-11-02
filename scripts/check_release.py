@@ -53,6 +53,13 @@ def check(directory: Path) -> None:
                         "A configured personal Agent was included in the public bundle"
                     )
                 clients = json.loads(archive.read("clients/windows/SHA256.json"))
+                if archive.read("server/kintlercontrol-image.tar.sha256").decode(
+                    "utf-8"
+                ).split() != [
+                    manifest["files"]["server/kintlercontrol-image.tar"]["sha256"],
+                    "kintlercontrol-image.tar",
+                ]:
+                    raise ValueError("Server image checksum does not match the bundle payload")
                 if set(clients) != {"KintlerController.exe", "KintlerAgent.exe"} or any(
                     hashlib.sha256(archive.read("clients/windows/" + name)).hexdigest() != digest
                     for name, digest in clients.items()
