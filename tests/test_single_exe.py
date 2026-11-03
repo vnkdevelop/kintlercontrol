@@ -77,6 +77,6 @@ def test_setup_discovers_portable_image_in_complete_bundle(tmp_path: Path, monke
     )
     assert (tmp_path / "output/server/kintlercontrol-image.tar").read_bytes() == image.read_bytes()
     assert result["start_command"] == "python3 start_server.py"
-    assert "kintlercontrol:1.6.1" in (tmp_path / "output/server/.env").read_text(encoding="utf-8")
+    assert "kintlercontrol:1.6.2" in (tmp_path / "output/server/.env").read_text(encoding="utf-8")
     assert (tmp_path / "output/server/start_server.py").is_file()
     assert (tmp_path / "output/server/kintlercontrol-image.tar.sha256").is_file()

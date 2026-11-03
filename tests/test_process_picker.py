@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -14,6 +15,16 @@ PROCESSES = [
     {"pid": 200, "name": "notepad.exe", "created": 123.5},
     {"pid": 100, "name": "notepad.exe", "created": 123.25},
 ]
+
+
+async def rendered_picker(app, pilot):
+    await pilot.pause()
+    dialog = app.screen
+    assert isinstance(dialog, ProcessPicker)
+    rendered = asyncio.Event()
+    dialog.call_after_refresh(rendered.set)
+    await asyncio.wait_for(rendered.wait(), 5)
+    return dialog
 
 
 @pytest.mark.parametrize("force", [False, True])
@@ -38,7 +49,7 @@ async def test_kill_lists_names_and_selects_exact_duplicate_process(tmp_path: Pa
         client.checked.return_value = {"ok": True, "processes": PROCESSES}
         app.query_one("#prompt", Input).value = "/kill" + (" --force" if force else "")
         await pilot.press("enter")
-        await pilot.pause()
+        await rendered_picker(app, pilot)
         assert isinstance(app.screen, ProcessPicker)
         client.checked.assert_awaited_once_with("node_fixture", "ps", {"sort": "pid", "limit": 500})
         client.call.assert_not_awaited()
@@ -69,7 +80,7 @@ async def test_kill_search_filters_case_insensitively_and_handles_no_matches(tmp
         client = client_for(app)
         client.checked.return_value = {"ok": True, "processes": PROCESSES}
         app.dispatch("/kill")
-        await pilot.pause()
+        await rendered_picker(app, pilot)
         dialog = app.screen
         assert isinstance(dialog, ProcessPicker)
         entry = dialog.query_one("#process-search", Input)
@@ -102,10 +113,10 @@ async def test_kill_picker_cancels_without_termination(tmp_path: Path, cancel):
         client = client_for(app)
         client.checked.return_value = {"ok": True, "processes": PROCESSES}
         worker = app.dispatch("/kill")
-        await pilot.pause()
+        await rendered_picker(app, pilot)
         assert isinstance(app.screen, ProcessPicker)
         if cancel == "button":
-            await pilot.click("#process-cancel")
+            assert await pilot.click("#process-cancel", offset=(8, 1))
         else:
             await pilot.press(cancel)
         await pilot.pause()
@@ -125,9 +136,10 @@ async def test_kill_picker_list_focus_and_scroll_work(tmp_path: Path):
         ]
         client.checked.return_value = {"ok": True, "processes": rows}
         app.dispatch("/kill")
-        await pilot.pause()
+        await rendered_picker(app, pilot)
         options = app.screen.query_one("#process-list", OptionList)
         options.focus()
+        await pilot.pause()
         await pilot.press("end")
         assert options.highlighted == 39
         assert options.scroll_y > 0
@@ -161,10 +173,10 @@ async def test_kill_picker_click_selects_literal_name_without_retry_on_pid_reuse
         client.checked.return_value = {"ok": True, "processes": [row]}
         client.call.return_value = {"ok": False, "error": "PID has been reused"}
         app.dispatch("/kill")
-        await pilot.pause()
+        await rendered_picker(app, pilot)
         options = app.screen.query_one("#process-list", OptionList)
         assert options.get_option_at_index(0).prompt.plain == row["name"]
-        await pilot.click("#process-list", offset=(2, 1))
+        assert await pilot.click("#process-list", offset=(2, 1))
         await pilot.pause()
         assert not app.screen.is_modal
         client.call.assert_awaited_once()
@@ -233,7 +245,7 @@ async def test_kill_picker_target_switch_cancels_open_picker(tmp_path: Path):
         other = dict(app.nodes[app.target], id="node_other", name="other")
         client.nodes.return_value.append(other)
         worker = app.dispatch("/kill")
-        await pilot.pause()
+        await rendered_picker(app, pilot)
         assert isinstance(app.screen, ProcessPicker)
         await app.execute(parse_command("/use other"))
         await pilot.pause()

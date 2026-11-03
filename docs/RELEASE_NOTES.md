@@ -1,5 +1,6 @@
-# KintlerControl 1.6.1
+# KintlerControl 1.6.2
 
+- Stabilize process-picker mouse tests by waiting for the first rendered frame before calculating click coordinates. Runtime process selection and cancellation behavior are unchanged.
 - Fix application lookup for `/open zabor.exe` and other installed apps not registered in PATH/App Paths: search the current user's and common Start menu shortcuts, matching the app/shortcut name or target EXE.
 - Read shortcut targets through Windows ShellLink without resolving or modifying the shortcut. Preserve shortcut arguments and working directory, then append the caller's literal arguments.
 - Deduplicate identical targets, refuse ambiguous matches and bound the search. Only file/path-not-found triggers lookup; permission errors never try alternative programs.
