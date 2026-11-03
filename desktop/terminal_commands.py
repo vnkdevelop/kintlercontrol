@@ -38,7 +38,9 @@ COMMANDS = (
         "Управление интерфейсом, мышью и клавиатурой",
         '/desktop help | /desktop snapshot {"app":"Notepad"}',
     ),
-    CommandSpec("kill", "Завершить конкретный процесс", "/kill PID время_создания [--force]"),
+    CommandSpec(
+        "kill", "Выбрать процесс из списка и завершить", "/kill [PID время_создания] [--force]"
+    ),
     CommandSpec(
         "upload",
         "Файл с этого ПК на выбранное устройство",
@@ -188,8 +190,8 @@ def parse_command(value: str) -> Invocation:
         data["command"] = command
         return Invocation(name, data, value)
     elif name == "kill":
-        parser.add_argument("pid", type=int)
-        parser.add_argument("created", type=float)
+        parser.add_argument("pid", type=int, nargs="?")
+        parser.add_argument("created", type=float, nargs="?")
         parser.add_argument("--force", action="store_true")
     elif name in {"upload", "download"}:
         for argument in (
@@ -252,6 +254,12 @@ def parse_command(value: str) -> Invocation:
             ),
         )
     data = vars(parser.parse_args(words(tail)))
+    if name == "kill":
+        if (data["pid"] is None) != (data["created"] is None):
+            parser.error("PID and creation time must be supplied together")
+        if data["pid"] is None:
+            data.pop("pid")
+            data.pop("created")
     if (
         name == "approve"
         and not data["code"]

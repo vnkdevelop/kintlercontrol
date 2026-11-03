@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import json
+import math
 import secrets
 import sys
 from datetime import datetime
@@ -182,6 +183,121 @@ class PairingDialog(ModalScreen[tuple[str, str] | None]):
             self.query_one("#pairing-code", Input).focus()
         else:
             self.dismiss((self.selected, code))
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class ProcessPicker(ModalScreen[dict | None]):
+    DEFAULT_CSS = """
+    ProcessPicker { align: center middle; background: #090e0b 85%; }
+    ProcessPicker > Vertical { width: 90%; max-width: 72; height: 90%; max-height: 34; background: #111b14; border: solid #246943; padding: 1 2; }
+    ProcessPicker Label { height: auto; }
+    ProcessPicker Input { margin-bottom: 1; }
+    ProcessPicker OptionList { height: 1fr; margin-bottom: 1; border: solid #246943; }
+    ProcessPicker Horizontal { height: 3; align: right middle; }
+    ProcessPicker Button { margin-left: 1; }
+    """
+    BINDINGS = [("escape", "cancel", "Отмена")]
+
+    def __init__(self, processes: list[dict], device: str):
+        super().__init__()
+        rows = sorted(
+            (
+                row
+                for row in processes
+                if isinstance(row, dict)
+                and isinstance(row.get("name"), str)
+                and row["name"].strip()
+                and isinstance(row.get("pid"), int)
+                and not isinstance(row["pid"], bool)
+                and row["pid"] > 1
+                and isinstance(row.get("created"), int | float)
+                and not isinstance(row["created"], bool)
+                and row["created"] > 0
+                and math.isfinite(row["created"])
+            ),
+            key=lambda row: (row["name"].casefold(), row["pid"]),
+        )
+        self.processes = {f"process-{index}": row for index, row in enumerate(rows)}
+        self.device = device
+
+    def compose(self) -> ComposeResult:
+        with Vertical():
+            yield Label(f"Завершить процесс · {self.device}", markup=False)
+            yield Label("↑ ↓ выбрать    Enter — завершить    Esc — отмена")
+            yield Label("Поиск по имени процесса")
+            yield Input(placeholder="Начните вводить имя…", id="process-search")
+            yield OptionList(id="process-list")
+            yield Label("", id="process-count", markup=False)
+            with Horizontal():
+                yield Button("Отмена", id="process-cancel")
+                yield Button("Завершить", variant="error", id="process-kill")
+
+    def on_mount(self) -> None:
+        self.filter_processes("")
+        self.query_one("#process-search", Input).focus()
+
+    def filter_processes(self, value: str) -> None:
+        options = self.query_one("#process-list", OptionList)
+        highlighted = (
+            options.get_option_at_index(options.highlighted).id
+            if options.highlighted is not None
+            else None
+        )
+        options.clear_options()
+        query = value.strip().casefold()
+        matches = [
+            key for key, row in self.processes.items() if query in row["name"].casefold()
+        ]
+        options.add_options(
+            Option(Text(self.processes[key]["name"]), id=key) for key in matches
+        )
+        if matches:
+            options.highlighted = matches.index(highlighted) if highlighted in matches else 0
+        else:
+            options.add_option(Option(Text("Процессы не найдены"), disabled=True))
+        self.query_one("#process-kill", Button).disabled = not matches
+        self.query_one("#process-count", Label).update(
+            f"Показано: {len(matches)} из {len(self.processes)} · список до 500 процессов"
+        )
+
+    @on(Input.Changed, "#process-search")
+    def search(self, event: Input.Changed) -> None:
+        self.filter_processes(event.value)
+
+    @on(Input.Submitted, "#process-search")
+    @on(OptionList.OptionSelected, "#process-list")
+    def select_process(self) -> None:
+        self.finish()
+
+    @on(Button.Pressed)
+    def selected_button(self, event: Button.Pressed) -> None:
+        if event.button.id == "process-cancel":
+            self.action_cancel()
+        else:
+            self.finish()
+
+    def finish(self) -> None:
+        options = self.query_one("#process-list", OptionList)
+        if options.highlighted is not None:
+            key = options.get_option_at_index(options.highlighted).id
+            process = self.processes.get(key) if key is not None else None
+            if process is not None:
+                self.dismiss(process)
+
+    def on_key(self, event: Key) -> None:
+        if not self.query_one("#process-search", Input).has_focus:
+            return
+        options = self.query_one("#process-list", OptionList)
+        if event.key == "down":
+            options.action_cursor_down()
+        elif event.key == "up":
+            options.action_cursor_up()
+        else:
+            return
+        event.stop()
+        event.prevent_default()
 
     def action_cancel(self) -> None:
         self.dismiss(None)
@@ -740,7 +856,7 @@ class TerminalController(App[None]):
                         ) from None
                     raise
             self.write(
-                f"Доступ к {request['name']} разрешён. /devices — выбрать ПК для работы."
+                f"Доступ к {request['name']} разрешён. /use — выбрать ПК для работы."
                 if name == "approve"
                 else "Подключение отклонено.",
                 ACCENT,
@@ -797,6 +913,24 @@ class TerminalController(App[None]):
             await self.action_close()
         else:
             client, target, node = self.require_target("shell" if name == "message" else name, args)
+            if name == "kill" and "pid" not in args:
+                self.require_target("ps", {})
+                self.write("Запрашиваю список процессов выбранного ПК…", MUTED)
+                listing = await client.checked(target, "ps", {"sort": "pid", "limit": 500})
+                if target != self.target or self.client is not client:
+                    raise ValueError("Цель изменилась; действие не отправлено на другой ПК")
+                picker = ProcessPicker(listing.get("processes", []), node["name"])
+                if not picker.processes:
+                    self.write("Нет доступных процессов для завершения.", MUTED)
+                    return
+                process = await self.push_screen_wait(picker)
+                if process is None:
+                    return
+                if target != self.target or self.client is not client:
+                    raise ValueError("Цель изменилась; действие не отправлено на другой ПК")
+                self.require_target("kill", args)
+                args.update(pid=process["pid"], created=process["created"])
+                self.write(f"Завершаю процесс: {process['name']}", MUTED)
             if name == "message":
                 if not node["platform"].lower().startswith("windows"):
                     raise ValueError(
@@ -888,7 +1022,9 @@ class TerminalController(App[None]):
             task.cancel()
         if pending:
             await asyncio.gather(*pending, return_exceptions=True)
-        while self.screen_stack and isinstance(self.screen, (FileArguments, PairingDialog)):
+        while self.screen_stack and isinstance(
+            self.screen, (FileArguments, PairingDialog, ProcessPicker)
+        ):
             self.screen.dismiss(None)
 
     def action_commands(self) -> None:

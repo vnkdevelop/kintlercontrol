@@ -241,7 +241,15 @@ async def desktop_checks(
         text = next(item for item in response.content if isinstance(item, TextContent))
         return json.loads(text.text)
 
-    opened = await call("open", app=sys.executable, arguments=["-c", script])
+    from desktop.shortcut import create_shortcut, start_menu_folders
+
+    folders = start_menu_folders()
+    assert folders, "Current user Start menu is unavailable"
+    with tempfile.TemporaryDirectory(prefix="Kintler-open-test-", dir=folders[0]) as directory:
+        alias = "Kintler GUI alias " + secrets.token_hex(6)
+        create_shortcut(Path(sys.executable), Path(directory) / (alias + ".lnk"))
+        opened = await call("open", app=alias + ".exe", arguments=["-c", script])
+        assert opened["ok"] and opened["data"].get("resolution_source") == "start_menu", opened
     assert opened["ok"] and opened["data"]["accepted"], opened
     pid = opened["data"]["pid"]
     assert pid and pid != os.getpid()

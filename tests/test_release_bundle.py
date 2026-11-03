@@ -58,7 +58,7 @@ def test_complete_bundle_contains_only_required_generic_payload(tmp_path: Path):
         assert "server/deploy/existing-nginx.conf" in names
         assert "docs/AI_SETUP.md" in names
         manifest = json.loads(archive.read("MANIFEST.json"))
-        assert manifest["version"] == "1.6.0"
+        assert manifest["version"] == "1.6.1"
         assert "server/start_server.py" in names
         assert "server/kintlercontrol-image.tar.sha256" in names
         assert not any(name.startswith(".private/") or name.endswith("/.env") for name in names)

@@ -1,4 +1,13 @@
-# KintlerControl 1.6.0
+# KintlerControl 1.6.1
+
+- Fix application lookup for `/open zabor.exe` and other installed apps not registered in PATH/App Paths: search the current user's and common Start menu shortcuts, matching the app/shortcut name or target EXE.
+- Read shortcut targets through Windows ShellLink without resolving or modifying the shortcut. Preserve shortcut arguments and working directory, then append the caller's literal arguments.
+- Deduplicate identical targets, refuse ambiguous matches and bound the search. Only file/path-not-found triggers lookup; permission errors never try alternative programs.
+- Preserve explicit executable paths, URI launches, device ACL, cancellation and the single native Agent EXE. Regression tests cover the real ShellLink reader and short-name GUI launch.
+- `/kill` without arguments opens a searchable, alphabetical process picker showing names only. Selection preserves the exact PID and creation time internally; Esc/Ctrl+C and target switches cancel without termination. Explicit PID/time arguments and `--force` remain supported.
+- Refine the AI desktop workflow around semantic UI Automation, bounded batches and minimal result verification. Reuse display geometry when coordinate input is needed; screenshots require an explicit request or necessary visual information unavailable through the accessibility tree.
+
+## Preserved 1.6.0 functionality
 
 - `/open` in Controller and `open` over MCP launch applications on the explicitly selected device. Literal argument arrays do not run through a shell.
 - New `desktop` tool embeds the pinned Apache-2.0 agent-desktop core/Windows libraries in the native Rust Agent. The managed PC still receives just one EXE, without Node.js, Python, a helper EXE or sidecar DLL.

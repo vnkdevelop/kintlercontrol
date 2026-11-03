@@ -18,13 +18,14 @@ there is no daily server-login form. Initial setup and profile selection remain 
 - `/deny 1`: refuse a connection without granting access.
 - `/help`: commands with descriptions and usage examples.
 - `/sysinfo`, `/ps --limit 20`: system information and processes.
+- `/kill`: choose a current process from a searchable, alphabetical list showing names only (up to 500 processes). Arrows select; Enter or the Terminate button terminates that exact process; Esc/Ctrl+C cancels. PID and creation time stay internal to preserve PID-reuse protection. `/kill --force` uses the same picker with explicit force; `/kill PID creation_time [--force]` remains supported. Requires both ps and kill permissions for the picker.
 - `/shell echo hello`, or a plain command: run immediately on the selected device, without an extra confirmation window.
 - `/message Привет, устройство!`: show this literal text in a Kintler message window on the selected Windows desktop. Russian, quotes and punctuation are supported; no administrator rights or new backend tool are needed. The command waits for OK, cancellation or the 120-second limit; Controller remains usable. The process stays inside the Agent's normal cancellation/cleanup boundary.
-- `/open notepad.exe`, `open notepad.exe` or `/open "C:\Program Files\App\app.exe" "argument"`: open an application on the selected device, with literal arguments and no shell interpolation. Requires open permission. MCP exposes the same open operation.
+- `/open notepad.exe`, `/open zabor.exe`, `open notepad.exe` or `/open "C:\Program Files\App\app.exe" "argument"`: open an application on the selected device, with literal arguments and no shell interpolation. Short names also match installed Start menu shortcuts and their target EXEs; shortcut arguments/working directory are preserved. Different matching targets require a full path, and permission failures never try an alternative. Requires open permission. MCP exposes the same operation.
 - `/desktop help` and `/desktop snapshot {"app":"Notepad"}`: embedded desktop controls. For physical input use `{"headed":true,...}`. The AI uses the same desktop MCP function to interpret and carry out a multi-step GUI task; the device runs no model and needs no extra executable. Commands are bounded, audited and cancelled on target switches.
 - `/upload local.bin remote.bin`, `/download remote.bin local.bin`: verified file transfer. Missing file parameters open a path form; download destination defaults to Downloads/KintlerControl. Destination directories are created as needed.
 - `/screenshot`: save a permitted interactive desktop to Pictures/KintlerControl and open the PNG in the local default image viewer; an explicit PNG path is optional. Progress, save location and viewer errors are displayed.
-- `/registry`, `/services`, `/tasks`, `/kill`: advanced operations with contextual help.
+- `/registry`, `/services`, `/tasks`: advanced operations with contextual help.
 - `/permissions`: operator and device permissions.
 - `/profile PATH`: choose an existing local owner profile; never replace a different owner.
 - `/setup HTTPS_URL OUTPUT --mode existing-proxy`: create a separate personal deployment.

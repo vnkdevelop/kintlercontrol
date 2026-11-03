@@ -278,7 +278,7 @@ def test_every_advertised_command_has_execution_coverage():
 
 
 def test_missing_parameters_have_readable_help_not_argparse_errors():
-    for command in ("/kill", "/registry", "/setup", "/profile", "/ps --limit wrong"):
+    for command in ("/kill 1234", "/registry", "/setup", "/profile", "/ps --limit wrong"):
         with pytest.raises(ValueError) as error:
             parse_command(command)
         assert "required:" not in str(error.value)

@@ -718,7 +718,7 @@ dependencies = [
 
 [[package]]
 name = "kintler-agent"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "agent-desktop-core",
  "agent-desktop-windows",
@@ -743,6 +743,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "tokio-util",
+ "windows 0.62.2",
  "windows-sys 0.61.2",
  "winreg",
  "winresource",

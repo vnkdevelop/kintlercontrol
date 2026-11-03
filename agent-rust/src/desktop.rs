@@ -523,7 +523,7 @@ fn quote_argument(value: &str) -> String {
 
 fn launch(params: &Value) -> Result<Value, AppError> {
     use windows_sys::Win32::{
-        Foundation::CloseHandle,
+        Foundation::{CloseHandle, GetLastError},
         System::Threading::GetProcessId,
         UI::{Shell::*, WindowsAndMessaging::SW_SHOWNORMAL},
     };
@@ -543,17 +543,19 @@ fn launch(params: &Value) -> Result<Value, AppError> {
     {
         return Err(AppError::invalid_input("Invalid launch arguments"));
     }
-    let parameters = arguments
+    let parameter_text = arguments
         .iter()
         .map(|s| quote_argument(s))
         .collect::<Vec<_>>()
         .join(" ");
-    if parameters.encode_utf16().count() > 30000 {
+    if parameter_text.encode_utf16().count() > 30000 {
         return Err(AppError::invalid_input("Launch argument limit reached"));
     }
     let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<_>>();
-    let app_wide = wide(&app);
-    let parameters = wide(&parameters);
+    let mut app_wide = wide(&app);
+    let mut parameters = wide(&parameter_text);
+    let directory: Option<Vec<u16>>;
+    let mut resolution_source = "windows";
     let verb = wide("open");
     let mut info: SHELLEXECUTEINFOW = unsafe { std::mem::zeroed() };
     info.cbSize = std::mem::size_of_val(&info) as u32;
@@ -562,8 +564,42 @@ fn launch(params: &Value) -> Result<Value, AppError> {
     info.lpFile = app_wide.as_ptr();
     info.lpParameters = parameters.as_ptr();
     info.nShow = SW_SHOWNORMAL;
+    let failure = |code| {
+        AppError::Adapter(agent_desktop_core::AdapterError::new(
+        if matches!(code,2|3) {agent_desktop_core::ErrorCode::AppNotFound} else {agent_desktop_core::ErrorCode::ActionFailed},
+        if matches!(code,2|3) {"Application was not found by executable name/path or Start menu shortcut. Use its installed name or full executable path."} else {"Windows could not open the application. Check its path and OS permissions."},
+    ).with_details(json!({"win32_error":code})).with_disposition(agent_desktop_core::DeliverySemantics::not_delivered()))
+    };
     if unsafe { ShellExecuteExW(&mut info) } == 0 {
-        return Err(AppError::Adapter(agent_desktop_core::AdapterError::new(agent_desktop_core::ErrorCode::ActionFailed,"Windows could not open the application; check its executable name/path and OS permissions").with_disposition(agent_desktop_core::DeliverySemantics::not_delivered())));
+        let error = unsafe { GetLastError() };
+        if !matches!(error, 2 | 3) {
+            return Err(failure(error));
+        }
+        let Some(found) = crate::applications::find_installed(&app, Deadline::standard()?)? else {
+            return Err(failure(error));
+        };
+        let combined = if found.arguments.is_empty() {
+            parameter_text
+        } else if parameter_text.is_empty() {
+            found.arguments
+        } else {
+            format!("{} {}", found.arguments, parameter_text)
+        };
+        if combined.encode_utf16().count() > 30000 {
+            return Err(AppError::invalid_input("Launch argument limit reached"));
+        }
+        app_wide = wide(&found.target);
+        parameters = wide(&combined);
+        directory = found.cwd.as_deref().map(wide);
+        info.lpFile = app_wide.as_ptr();
+        info.lpParameters = parameters.as_ptr();
+        info.lpDirectory = directory
+            .as_ref()
+            .map_or(std::ptr::null(), |value| value.as_ptr());
+        if unsafe { ShellExecuteExW(&mut info) } == 0 {
+            return Err(failure(unsafe { GetLastError() }));
+        }
+        resolution_source = "start_menu";
     }
     let pid = if info.hProcess.is_null() {
         None
@@ -573,7 +609,7 @@ fn launch(params: &Value) -> Result<Value, AppError> {
         Some(pid)
     };
     Ok(
-        json!({"app":app,"pid":pid,"accepted":true,"verification":"launch_requested","disposition":{"delivery":"delivered_unverified","retry":"unsafe"}}),
+        json!({"app":app,"pid":pid,"accepted":true,"resolution_source":resolution_source,"verification":"launch_requested","disposition":{"delivery":"delivered_unverified","retry":"unsafe"}}),
     )
 }
 

@@ -80,7 +80,7 @@ async def shell(
 
 @mcp.tool()
 async def open(node: str, app: str, ctx: Context, arguments: list[str] | None = None) -> dict:
-    """Open an authorized application on the selected device. app is an executable name/path, not a shell command; arguments are literal. Requires open permission and an interactive desktop."""
+    """Open an authorized application on the selected device by executable name/path or installed Start menu name. Not a shell command; arguments are literal. Ambiguous matches require a full path. Requires open permission and an interactive desktop."""
     return await sdk(ctx).call(node, "open", {"app": app, "arguments": arguments or []})
 
 

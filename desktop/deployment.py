@@ -91,7 +91,7 @@ def _create_deployment(
         shutil.copyfile(portable_image, server / "kintlercontrol-image.tar")
         from dotenv import set_key
 
-        set_key(str(server / ".env"), "KINTLER_IMAGE", "kintlercontrol:1.6.0")
+        set_key(str(server / ".env"), "KINTLER_IMAGE", "kintlercontrol:1.6.1")
         with (server / "kintlercontrol-image.tar").open("rb") as handle:
             checksum = hashlib.file_digest(handle, "sha256").hexdigest()
         (server / "kintlercontrol-image.tar.sha256").write_text(

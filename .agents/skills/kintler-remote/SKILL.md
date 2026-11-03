@@ -4,8 +4,8 @@ description: >-
   Use Kintler MCP to work on a selected remote Windows/Linux device, open apps, operate a Windows GUI for a user's multi-step task, or configure its local stdio connection. Install Controller only if missing. Not for developing KintlerControl itself.
 metadata:
   product: kintlercontrol
-  version: "1.6.0"
-  revision: "embedded-desktop-1"
+  version: "1.6.1"
+  revision: "semantic-desktop-2"
 ---
 
 # Kintler: сразу к работе
@@ -58,7 +58,7 @@ metadata:
 
 Обычная команда — `shell(node=ID, command=ТЕКСТ, interpreter=ИЗ_КОНТЕКСТА, cwd=".", timeout=120)`. Каждый вызов создаёт новый процесс: `cd` и переменные не сохраняются. Передача файла — `upload`/`download`, изображение — `screenshot`, буквальное сообщение — `message`. Для точных параметров, PID/created и редких инструментов читай только нужную строку [references/tools.md](references/tools.md). Это MCP-сигнатуры, не функции для импорта в Python; `ctx` не передаётся.
 
-Открыть приложение — `open(node=ID, app="notepad.exe", arguments=[])`, не shell. Если просьба требует работы в интерфейсе («заполни форму, нажми, сохрани»), сам выбери `desktop`: один раз прочитай `desktop(action="help")`, затем наблюдай → действуй → проверяй. Пользователю не нужно перечислять движения мыши. Используй refs дерева доступности, а `headed=true` и `screenshot(node=ID)` — когда для запрошенной задачи нужны физический ввод и видимый экран. Скриншоты и полную справку не загружай постоянно. Подробности только при GUI-задаче: [references/desktop.md](references/desktop.md).
+Открыть приложение — `open(node=ID, app="notepad.exe", arguments=[])`, не shell; не заменяй им явно запрошенный запуск через панель задач. Для GUI используй `desktop`: справку получи один раз для текущего контракта, по возможности в начальном batch вместе с нужными list-windows и list-displays. Наблюдение по умолчанию — JSON дерева доступности, не изображение: snapshot/find/get и refs. Перед первым координатным вводом сохрани геометрию этого устройства; если есть ref, предпочти действие по нему, даже с headed=true. Физический ввод сам по себе НЕ требует скриншота. screenshot допустим только по прямому запросу пользователя либо когда конкретные необходимые визуальные данные недоступны через дерево/поиск; назови эту нехватку, не снимай экран для обычного подтверждения клика. Объединяй заранее известные шаги в batch, ожидание — wait, проверка — минимальный достаточный результат. Подробности только при GUI-задаче: [references/desktop.md](references/desktop.md).
 
 ## Пути, команды и передача между ПК
 

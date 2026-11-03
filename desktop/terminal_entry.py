@@ -36,11 +36,20 @@ async def check(path: Path, node: str, result: Path) -> None:
 
 
 async def self_test(path: Path, role: str = "controller") -> None:
-    from desktop.terminal_controller import TerminalController
+    from desktop.terminal_controller import ProcessPicker, TerminalController
 
     app = TerminalController(autoconnect=False)
     async with app.run_test(size=(110, 36)) as pilot:
+        await app.push_screen(
+            ProcessPicker(
+                [{"pid": 100, "name": "kintler-self-test.exe", "created": 123.25}],
+                "self-test",
+            )
+        )
         await pilot.pause()
+        assert isinstance(app.screen, ProcessPicker)
+        await pilot.press("escape")
+        assert not app.screen.is_modal
     path.write_text(json.dumps({"ok": True, "role": role, "terminal": True}), encoding="utf-8")
 
 

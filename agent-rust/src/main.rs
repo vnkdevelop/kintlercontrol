@@ -1,4 +1,5 @@
 #![cfg_attr(not(test), windows_subsystem = "windows")]
+mod applications;
 mod desktop;
 mod identity;
 mod network;

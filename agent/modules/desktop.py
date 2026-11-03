@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from agent.modules import executor
+from agent.modules.applications import find_installed
 from common.protocol import ProtocolError
 
 MAX_RESULT = 160 * 1024
@@ -25,8 +26,24 @@ def open_application(args: dict, root: Path) -> dict:
     ):
         raise ProtocolError("Invalid application arguments")
     if sys.platform == "win32":
-        os.startfile(app, "open", subprocess.list2cmdline(arguments), str(root))
-        return {"ok": True, "accepted": True, "verification": "launch_requested"}
+        parameters = subprocess.list2cmdline(arguments)
+        resolution_source = "windows"
+        try:
+            os.startfile(app, "open", parameters, str(root))
+        except FileNotFoundError:
+            found = find_installed(app)
+            if found is None:
+                raise
+            target, prefix, cwd = found
+            parameters = " ".join(value for value in (prefix, parameters) if value)
+            os.startfile(target, "open", parameters, cwd or str(root))
+            resolution_source = "start_menu"
+        return {
+            "ok": True,
+            "accepted": True,
+            "resolution_source": resolution_source,
+            "verification": "launch_requested",
+        }
     if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
         raise ProtocolError("An interactive graphical session is required")
     child = subprocess.Popen(
