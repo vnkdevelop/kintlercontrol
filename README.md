@@ -157,6 +157,9 @@ using release EXE files.
 | Command output | Up to 2 MiB |
 | File size | Up to 256 MiB |
 | Concurrent commands | 64 total, 8 per node, 16 per controller session |
+| Audit retention | 30 days, at most 100,000 records |
+
+Audit expiry runs at startup and hourly in bounded batches; the row limit is enforced on every write. Set `KINTLER_AUDIT_RETENTION_DAYS` (1–3650) and `KINTLER_AUDIT_MAX_ROWS` (1–1,000,000) in the server's ignored `.env` and recreate the relay container to change the limits. Old audit records are deleted, not device identities or approvals. Freed SQLite pages are reused, so an existing database may retain its previous file-size high-water mark rather than shrink immediately.
 
 One relay process/replica is supported. Its restart interrupts live sessions and
 requires fresh agent approvals. Persistent identities and audit remain in the

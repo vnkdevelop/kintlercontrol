@@ -43,6 +43,8 @@ class Settings:
     allow_local_http: bool = False
     approval_timeout: int = 600
     max_pending: int = 64
+    audit_retention: int = 30 * 86400
+    audit_max_rows: int = 100000
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -102,6 +104,15 @@ class Settings:
             for p in os.environ.get("KINTLER_TRUSTED_PROXIES", "").split(",")
             if p.strip()
         )
+        try:
+            audit_days = int(os.environ.get("KINTLER_AUDIT_RETENTION_DAYS", "30"))
+            audit_max_rows = int(os.environ.get("KINTLER_AUDIT_MAX_ROWS", "100000"))
+            if not 1 <= audit_days <= 3650 or not 1 <= audit_max_rows <= 1000000:
+                raise ValueError
+        except ValueError:
+            raise ValueError(
+                "KINTLER_AUDIT_RETENTION_DAYS must be 1..3650 and KINTLER_AUDIT_MAX_ROWS must be 1..1000000"
+            ) from None
         return cls(
             credentials=credentials,
             database=Path(os.environ.get("KINTLER_DATABASE", "data/kintler.sqlite3")),
@@ -109,4 +120,6 @@ class Settings:
             port=int(os.environ.get("KINTLER_PORT", "7443")),
             trusted_proxies=proxies,
             allow_local_http=os.environ.get("KINTLER_ALLOW_LOCAL_HTTP") == "1",
+            audit_retention=audit_days * 86400,
+            audit_max_rows=audit_max_rows,
         )

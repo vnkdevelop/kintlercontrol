@@ -4,7 +4,7 @@ description: >-
   Use Kintler MCP to work on a selected remote Windows/Linux device, open apps, operate a Windows GUI for a user's multi-step task, or configure its local stdio connection. Install Controller only if missing. Not for developing KintlerControl itself.
 metadata:
   product: kintlercontrol
-  version: "1.6.2"
+  version: "1.6.3"
   revision: "semantic-desktop-2"
 ---
 

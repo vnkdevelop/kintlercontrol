@@ -718,7 +718,7 @@ dependencies = [
 
 [[package]]
 name = "kintler-agent"
-version = "1.6.2"
+version = "1.6.3"
 dependencies = [
  "agent-desktop-core",
  "agent-desktop-windows",

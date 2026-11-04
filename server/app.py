@@ -26,7 +26,7 @@ class Service:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.auth = Auth(settings)
-        self.storage = Storage(settings.database)
+        self.storage = Storage(settings.database, settings.audit_retention, settings.audit_max_rows)
         self.registry = Registry(self.storage)
         self.router = Router(settings, self.auth, self.registry, self.storage)
         self.approvals = Approvals(settings, self.auth, self.registry, self.storage)
@@ -36,6 +36,7 @@ class Service:
         self.maintenance_healthy = True
         self.maintenance_last_tick = time.monotonic()
         self.failed_routes: set[str] = set()
+        self.audit_cleanup_due = 0.0
 
     def peer(self, request: web.Request) -> str:
         address = request.remote or "unknown"
@@ -71,6 +72,8 @@ class Service:
         return session
 
     async def lifecycle(self, app: web.Application) -> AsyncIterator[None]:
+        removed = await self.storage.prune_audit()
+        self.audit_cleanup_due = time.monotonic() + (2 if removed == 1000 else 3600)
         await self.registry.load()
         for principal, node, public in await self.storage.load_agent_keys():
             existing = self.auth.credentials.get(principal)
@@ -97,9 +100,12 @@ class Service:
             self.auth.prune()
             try:
                 await self.router.tick()
+                if time.monotonic() >= self.audit_cleanup_due:
+                    removed = await self.storage.prune_audit()
+                    self.audit_cleanup_due = time.monotonic() + (2 if removed == 1000 else 3600)
             except Exception:
                 self.maintenance_healthy = False
-                logger.exception("Command maintenance failed; check audit storage")
+                logger.exception("Server maintenance failed; check audit storage")
             else:
                 self.maintenance_healthy = True
             for node in list(self.registry.nodes.values()):
@@ -127,7 +133,7 @@ class Service:
         except Exception:
             healthy = False
         return web.json_response(
-            {"status": "ok" if healthy else "unhealthy", "version": "1.6.2"},
+            {"status": "ok" if healthy else "unhealthy", "version": "1.6.3"},
             status=200 if healthy else 503,
         )
 

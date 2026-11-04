@@ -247,12 +247,8 @@ class ProcessPicker(ModalScreen[dict | None]):
         )
         options.clear_options()
         query = value.strip().casefold()
-        matches = [
-            key for key, row in self.processes.items() if query in row["name"].casefold()
-        ]
-        options.add_options(
-            Option(Text(self.processes[key]["name"]), id=key) for key in matches
-        )
+        matches = [key for key, row in self.processes.items() if query in row["name"].casefold()]
+        options.add_options(Option(Text(self.processes[key]["name"]), id=key) for key in matches)
         if matches:
             options.highlighted = matches.index(highlighted) if highlighted in matches else 0
         else:

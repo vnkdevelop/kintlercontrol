@@ -42,7 +42,7 @@ tests, packaging and public installations keep working.
 ```text
 dist/
   windows/                         generic EXEs + SHA256.json, used by build/smoke/CI
-  releases/v1.6.2/                 complete bundle + skill ZIP + Controller bootstrap + SHA256SUMS.txt
+  releases/v1.6.3/                 complete bundle + skill ZIP + Controller bootstrap + SHA256SUMS.txt
 .private/
   clients/windows/                 configured personal Agent + portable Controller
   deployment/server/               actual server kit: .env, Compose, public registration, proxy files

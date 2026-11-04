@@ -19,6 +19,7 @@ class Node:
     session_id: str = ""
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     ready: bool = False
+    persisted_at: float = 0.0
 
     def view(self) -> dict:
         return {
@@ -71,12 +72,15 @@ class Registry:
         node = Node(node_id, self.metadata(metadata), time.time(), socket, session.id)
         self.nodes[node_id] = node
         await self.storage.save_node(node_id, node.metadata, node.last_seen)
+        node.persisted_at = time.monotonic()
         return node
 
     async def heartbeat(self, node: Node, metadata: object) -> None:
         node.metadata = self.metadata(metadata)
         node.last_seen = time.time()
-        await self.storage.save_node(node.id, node.metadata, node.last_seen)
+        if time.monotonic() - node.persisted_at >= 60:
+            await self.storage.save_node(node.id, node.metadata, node.last_seen)
+            node.persisted_at = time.monotonic()
 
     async def disconnect(self, node: Node) -> None:
         if self.nodes.get(node.id) is node:

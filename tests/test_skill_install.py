@@ -39,7 +39,7 @@ def test_managed_skill_update_preserves_unrelated_files(tmp_path: Path):
     (destination / "notes.txt").write_text("user notes")
     entry = destination / "SKILL.md"
     entry.write_text(
-        entry.read_text(encoding="utf-8").replace('version: "1.6.2"', 'version: "old"'),
+        entry.read_text(encoding="utf-8").replace('version: "1.6.3"', 'version: "old"'),
         encoding="utf-8",
     )
     result = install("shared", replace_existing=True, home=tmp_path)

@@ -7,7 +7,7 @@ on:
       tag:
         description: "Release tag matching pyproject.toml"
         required: true
-        default: "v1.6.2"
+        default: "v1.6.3"
 permissions:
   contents: read
 env:
@@ -26,6 +26,7 @@ jobs:
       - run: uv run --no-sync python -m scripts.validate_release_tag
       - run: uv run --no-sync python -m scripts.privacy_check
       - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync ruff format --check .
       - run: uv run --no-sync mypy server agent client common scripts desktop deploy
       - run: uv run --no-sync pytest
       - run: cargo clippy --manifest-path agent-rust/Cargo.toml --locked -- -D warnings
@@ -51,18 +52,18 @@ jobs:
       - run: uv run --no-sync python -m scripts.validate_release_tag
       - run: uv run --no-sync python -m scripts.privacy_check
       - run: uv run --no-sync pytest
-      - run: docker build -t kintlercontrol:1.6.2 .
+      - run: docker build -t kintlercontrol:1.6.3 .
       - run: docker build --target test -t kintlercontrol:test .
       - run: docker run --rm kintlercontrol:test
-      - run: uv run --no-sync python -m scripts.container_smoke --image kintlercontrol:1.6.2
+      - run: uv run --no-sync python -m scripts.container_smoke --image kintlercontrol:1.6.3
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - run: docker tag kintlercontrol:1.6.2 ghcr.io/${{ github.repository }}:1.6.2
-      - run: docker push ghcr.io/${{ github.repository }}:1.6.2
-      - run: docker save --output kintlercontrol-image.tar kintlercontrol:1.6.2
+      - run: docker tag kintlercontrol:1.6.3 ghcr.io/${{ github.repository }}:1.6.3
+      - run: docker push ghcr.io/${{ github.repository }}:1.6.3
+      - run: docker save --output kintlercontrol-image.tar kintlercontrol:1.6.3
       - uses: actions/upload-artifact@v4
         with:
           name: backend-image

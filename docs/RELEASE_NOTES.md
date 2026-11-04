@@ -1,4 +1,12 @@
-# KintlerControl 1.6.2
+# KintlerControl 1.6.3
+
+- Automatically expire audit records after 30 days and retain at most 100,000 records. Configure positive limits through `KINTLER_AUDIT_RETENTION_DAYS` and `KINTLER_AUDIT_MAX_ROWS` in the server's local `.env`.
+- Enforce the row cap in the same transaction as each audit write. Expiry cleanup runs at startup and hourly, draining old records in bounded 1,000-row batches without deleting device identities or registrations.
+- Reuse freed SQLite pages, enable incremental vacuum for new databases and limit retained journal size. Existing databases remain compatible without a blocking full-database migration.
+- Refresh heartbeat metadata and liveness in memory on every pulse, but persist it at most once per minute and on disconnect. Approval, ACL and session-expiry behavior are unchanged.
+- Fix Controller process-picker formatting and require the release workflow to pass the same formatting check as CI.
+
+## Preserved 1.6.2 functionality
 
 - Stabilize process-picker mouse tests by waiting for the first rendered frame before calculating click coordinates. Runtime process selection and cancellation behavior are unchanged.
 - Fix application lookup for `/open zabor.exe` and other installed apps not registered in PATH/App Paths: search the current user's and common Start menu shortcuts, matching the app/shortcut name or target EXE.

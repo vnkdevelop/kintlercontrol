@@ -12,16 +12,23 @@ T = TypeVar("T")
 
 
 class Storage:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, audit_retention: int = 30 * 86400, audit_max_rows: int = 100000):
+        if audit_retention <= 0 or audit_max_rows <= 0:
+            raise ValueError("Audit retention and row limit must be positive")
+        self.audit_retention = audit_retention
+        self.audit_max_rows = audit_max_rows
         path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(path, check_same_thread=False)
+        if self.connection.execute("PRAGMA page_count").fetchone()[0] == 0:
+            self.connection.execute("PRAGMA auto_vacuum=INCREMENTAL")
         self.lock = asyncio.Lock()
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="kintler-sqlite")
         self.connection.executescript(
-            "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;"
+            "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA journal_size_limit=4194304;"
             "CREATE TABLE IF NOT EXISTS nodes (id TEXT PRIMARY KEY, metadata TEXT NOT NULL, last_seen REAL NOT NULL);"
             "CREATE TABLE IF NOT EXISTS agent_keys (principal TEXT PRIMARY KEY, node_id TEXT UNIQUE NOT NULL, public_key TEXT NOT NULL);"
             "CREATE TABLE IF NOT EXISTS audit (seq INTEGER PRIMARY KEY AUTOINCREMENT, at REAL NOT NULL, action TEXT NOT NULL, principal TEXT NOT NULL, session_id TEXT NOT NULL, node_id TEXT NOT NULL, command_id TEXT NOT NULL, detail TEXT NOT NULL);"
+            "CREATE INDEX IF NOT EXISTS audit_at ON audit(at);"
         )
         self.connection.commit()
 
@@ -50,11 +57,32 @@ class Storage:
     def _audit(
         self, action: str, principal: str, session: str, node: str, command: str, detail: dict
     ) -> None:
-        self.connection.execute(
+        cursor = self.connection.execute(
             "INSERT INTO audit(at,action,principal,session_id,node_id,command_id,detail) VALUES(?,?,?,?,?,?,?)",
             (time.time(), action, principal, session, node, command, json.dumps(detail)),
         )
+        if cursor.lastrowid is not None:
+            self.connection.execute(
+                "DELETE FROM audit WHERE seq<=?", (cursor.lastrowid - self.audit_max_rows,)
+            )
         self.connection.commit()
+
+    async def prune_audit(self) -> int:
+        return await self.run(self._prune_audit)
+
+    def _prune_audit(self) -> int:
+        latest = self.connection.execute("SELECT COALESCE(MAX(seq),0) FROM audit").fetchone()[0]
+        cursor = self.connection.execute(
+            "DELETE FROM audit WHERE seq IN (SELECT seq FROM audit WHERE at<? OR seq<=? LIMIT 1000)",
+            (time.time() - self.audit_retention, latest - self.audit_max_rows),
+        )
+        removed = cursor.rowcount
+        self.connection.commit()
+        if removed:
+            self.connection.execute("PRAGMA incremental_vacuum(128)")
+            self.connection.commit()
+            self.connection.execute("PRAGMA wal_checkpoint(PASSIVE)")
+        return removed
 
     async def save_node(self, node_id: str, metadata: dict, last_seen: float) -> None:
         await self.run(self._save_node, node_id, metadata, last_seen)

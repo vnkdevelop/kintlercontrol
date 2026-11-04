@@ -56,7 +56,9 @@ def initialize(
     values = {
         "KINTLER_CREDENTIALS": json.dumps([credential], separators=(",", ":")),
         "KINTLER_URL": url,
-        "KINTLER_IMAGE": "ghcr.io/vnkdevelop/kintlercontrol:1.6.2",
+        "KINTLER_IMAGE": "ghcr.io/vnkdevelop/kintlercontrol:1.6.3",
+        "KINTLER_AUDIT_RETENTION_DAYS": "30",
+        "KINTLER_AUDIT_MAX_ROWS": "100000",
         "KINTLER_DATABASE": "/app/data/kintler.sqlite3",
         "KINTLER_ALLOW_LOCAL_HTTP": "0",
         "KINTLER_TLS_CERT": certificate or f"/etc/letsencrypt/live/{parsed.hostname}/fullchain.pem",
